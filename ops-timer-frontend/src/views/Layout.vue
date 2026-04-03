@@ -3,7 +3,7 @@
     <v-navigation-drawer v-model="drawer" :rail="rail">
       <v-list-item
         prepend-icon="mdi-timer-cog-outline"
-        title="计时器"
+        title="任务管理器"
         class="py-3"
         @click="rail = !rail"
       />
@@ -71,7 +71,11 @@
 
     <v-main>
       <v-container fluid class="pa-4 pa-md-6">
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <transition name="route-fade" mode="out-in">
+            <component :is="Component" :key="route.path" />
+          </transition>
+        </router-view>
       </v-container>
     </v-main>
   </v-layout>
@@ -93,9 +97,10 @@ const notificationStore = useNotificationStore()
 const drawer = ref(true)
 const rail = ref(false)
 
-// 小屏幕默认收起抽屉
+// 小屏幕默认收起抽屉，同时启动通知轮询
 onMounted(() => {
   drawer.value = mdAndUp.value
+  notificationStore.startPolling()
 })
 
 const navItems = [
@@ -103,6 +108,8 @@ const navItems = [
   { title: '计时单元', icon: 'mdi-timer', to: '/units' },
   { title: '项目管理', icon: 'mdi-folder-outline', to: '/projects' },
   { title: '待办事项', icon: 'mdi-checkbox-marked-outline', to: '/todos' },
+  { title: '日程管理', icon: 'mdi-calendar-month', to: '/schedule' },
+  { title: '预算管理', icon: 'mdi-wallet', to: '/budget' },
   { title: '通知中心', icon: 'mdi-bell-outline', to: '/notifications' },
 ]
 
@@ -113,12 +120,14 @@ const titleMap: Record<string, string> = {
   projects: '项目管理',
   'project-detail': '项目详情',
   todos: '待办事项',
+  schedule: '日程管理',
+  budget: '预算管理',
   notifications: '通知中心',
   settings: '系统设置',
 }
 
 const currentTitle = computed(() => {
-  return titleMap[route.name as string] || '计时器'
+  return titleMap[route.name as string] || '任务管理器'
 })
 
 async function handleLogout() {
@@ -126,11 +135,19 @@ async function handleLogout() {
   router.push('/login')
 }
 
-onMounted(() => {
-  notificationStore.startPolling()
-})
-
 onUnmounted(() => {
   notificationStore.stopPolling()
 })
 </script>
+
+<style scoped>
+.route-fade-enter-active,
+.route-fade-leave-active {
+  transition: opacity 0.12s ease;
+}
+
+.route-fade-enter-from,
+.route-fade-leave-to {
+  opacity: 0;
+}
+</style>

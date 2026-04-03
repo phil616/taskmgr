@@ -89,6 +89,11 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		}
 		return
 	}
+
+	// 密码修改成功后撤销当前 JWT，强制重新登录
+	if token, exists := c.Get("token"); exists {
+		h.authService.Logout(token.(string))
+	}
 	response.Success(c, nil)
 }
 
@@ -115,7 +120,7 @@ func (h *AuthHandler) RegenerateToken(c *gin.Context) {
 // TestEmail 发送测试邮件到当前用户的邮箱
 func (h *AuthHandler) TestEmail(c *gin.Context) {
 	if !h.emailService.Enabled() {
-		response.BusinessError(c, "SMTP 邮件通知未配置，请在 config.yaml 中填写 smtp 配置")
+		response.BusinessError(c, "SMTP 邮件通知未配置，请通过 TASK_MANAGER_SMTP_* 环境变量配置")
 		return
 	}
 	userID := c.GetString("user_id")

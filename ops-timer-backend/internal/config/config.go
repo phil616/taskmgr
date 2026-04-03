@@ -1,131 +1,152 @@
 package config
 
 import (
-	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Server    ServerConfig    `mapstructure:"server"`
-	Database  DatabaseConfig  `mapstructure:"database"`
-	Auth      AuthConfig      `mapstructure:"auth"`
-	Scheduler SchedulerConfig `mapstructure:"scheduler"`
-	OAuth     OAuthConfig     `mapstructure:"oauth"`
-	SMTP      SMTPConfig      `mapstructure:"smtp"`
-	Log       LogConfig       `mapstructure:"log"`
+	Server    ServerConfig
+	Database  DatabaseConfig
+	Auth      AuthConfig
+	Scheduler SchedulerConfig
+	MCP       MCPConfig
+	SMTP      SMTPConfig
+	Log       LogConfig
 }
 
 type ServerConfig struct {
-	Host        string   `mapstructure:"host"`
-	Port        int      `mapstructure:"port"`
-	CorsOrigins []string `mapstructure:"cors_origins"`
+	Host        string
+	Port        int
+	CorsOrigins []string
 }
 
 type DatabaseConfig struct {
-	Driver string `mapstructure:"driver"`
-	DSN    string `mapstructure:"dsn"`
+	Driver string
+	DSN    string
 }
 
 type AuthConfig struct {
-	JWTSecret         string `mapstructure:"jwt_secret"`
-	JWTExpiryHours    int    `mapstructure:"jwt_expiry_hours"`
-	LoginLockAttempts int    `mapstructure:"login_lock_attempts"`
-	LoginLockMinutes  int    `mapstructure:"login_lock_minutes"`
+	JWTSecret         string
+	JWTExpiryHours    int
+	LoginLockAttempts int
+	LoginLockMinutes  int
 }
 
 type SchedulerConfig struct {
-	NotificationScanInterval string `mapstructure:"notification_scan_interval"`
+	NotificationScanInterval string
+}
+
+type MCPConfig struct {
+	Enabled        bool
+	Path           string
+	ExternalURL    string
+	ServerName     string
+	ServerVersion  string
+	TimeoutSeconds int
 }
 
 type SMTPConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	From     string `mapstructure:"from"`
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string
 }
 
-// Enabled 返回是否启用 SMTP 邮件通知
 func (c *SMTPConfig) Enabled() bool {
 	return c.Host != "" && c.From != ""
 }
 
-type OAuthConfig struct {
-	Enabled      bool     `mapstructure:"enabled"`
-	IssuerURL    string   `mapstructure:"issuer_url"`
-	ClientID     string   `mapstructure:"client_id"`
-	ClientSecret string   `mapstructure:"client_secret"`
-	RedirectURL  string   `mapstructure:"redirect_url"`
-	FrontendURL  string   `mapstructure:"frontend_url"`
-	Scopes       []string `mapstructure:"scopes"`
-	AdminEmails  []string `mapstructure:"admin_emails"`
-}
-
-// IsConfigured 判断 OAuth 是否已完整配置
-func (c *OAuthConfig) IsConfigured() bool {
-	return c.Enabled && c.IssuerURL != "" && c.ClientID != "" && c.ClientSecret != ""
-}
-
 type LogConfig struct {
-	Level  string `mapstructure:"level"`
-	Format string `mapstructure:"format"`
+	Level  string
+	Format string
 }
 
-// Load 从配置文件与环境变量加载配置。环境变量前缀为 TIMER_，嵌套键中的点替换为下划线
-//（例如 TIMER_AUTH_JWT_SECRET 对应 auth.jwt_secret）。
-// 若 path 非空但文件不存在，则跳过文件，仅使用环境变量及下方默认值（适用于 Docker 等仅注入环境变量的场景）。
-// path 为空时同样不读取文件，仅环境变量。
-func Load(path string) (*Config, error) {
-	v := viper.New()
-	v.SetConfigType("yaml")
+func env(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
 
-	v.SetEnvPrefix("TIMER")
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
+func envInt(key string, fallback int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return fallback
+}
 
-	if path != "" {
-		fi, err := os.Stat(path)
-		switch {
-		case err == nil && fi.IsDir():
-			return nil, fmt.Errorf("config path %q is a directory", path)
-		case err == nil && !fi.IsDir():
-			v.SetConfigFile(path)
-			if err := v.ReadInConfig(); err != nil {
-				return nil, fmt.Errorf("read config file %q: %w", path, err)
+func envBool(key string, fallback bool) bool {
+	if v := os.Getenv(key); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			return b
+		}
+	}
+	return fallback
+}
+
+// Load 从 .env 文件与环境变量加载配置。
+// 所有配置项通过 TASK_MANAGER_* 前缀的环境变量读取。
+// 自动加载同目录下的 .env 文件（若存在），方便本地开发。
+// 已在 shell 中导出的同名变量优先级高于 .env（godotenv 不覆盖已有环境变量）。
+func Load() (*Config, error) {
+	_ = godotenv.Load(".env")
+
+	corsStr := env("TASK_MANAGER_SERVER_CORS_ORIGINS", "")
+	var corsOrigins []string
+	if corsStr != "" {
+		for _, s := range strings.Split(corsStr, ",") {
+			if t := strings.TrimSpace(s); t != "" {
+				corsOrigins = append(corsOrigins, t)
 			}
-		case err != nil && os.IsNotExist(err):
-			// 无配置文件：仅 TIMER_* 环境变量 + 默认值
-		default:
-			return nil, fmt.Errorf("stat config path %q: %w", path, err)
 		}
 	}
 
-	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, err
+	cfg := &Config{
+		Server: ServerConfig{
+			Host:        env("TASK_MANAGER_SERVER_HOST", "0.0.0.0"),
+			Port:        envInt("TASK_MANAGER_SERVER_PORT", 8080),
+			CorsOrigins: corsOrigins,
+		},
+		Database: DatabaseConfig{
+			Driver: env("TASK_MANAGER_DATABASE_DRIVER", "sqlite"),
+			DSN:    env("TASK_MANAGER_DATABASE_DSN", "./data/task_manager.db"),
+		},
+		Auth: AuthConfig{
+			JWTSecret:         env("TASK_MANAGER_AUTH_JWT_SECRET", ""),
+			JWTExpiryHours:    envInt("TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS", 24),
+			LoginLockAttempts: envInt("TASK_MANAGER_AUTH_LOGIN_LOCK_ATTEMPTS", 5),
+			LoginLockMinutes:  envInt("TASK_MANAGER_AUTH_LOGIN_LOCK_MINUTES", 15),
+		},
+		Scheduler: SchedulerConfig{
+			NotificationScanInterval: env("TASK_MANAGER_SCHEDULER_NOTIFICATION_SCAN_INTERVAL", "10m"),
+		},
+		MCP: MCPConfig{
+			Enabled:        envBool("TASK_MANAGER_MCP_ENABLED", true),
+			Path:           env("TASK_MANAGER_MCP_PATH", "/mcp"),
+			ExternalURL:    env("TASK_MANAGER_MCP_EXTERNAL_URL", ""),
+			ServerName:     env("TASK_MANAGER_MCP_SERVER_NAME", "ops-timer-mcp"),
+			ServerVersion:  env("TASK_MANAGER_MCP_SERVER_VERSION", "2.0.0"),
+			TimeoutSeconds: envInt("TASK_MANAGER_MCP_TIMEOUT_SECONDS", 30),
+		},
+		SMTP: SMTPConfig{
+			Host:     env("TASK_MANAGER_SMTP_HOST", ""),
+			Port:     envInt("TASK_MANAGER_SMTP_PORT", 587),
+			Username: env("TASK_MANAGER_SMTP_USERNAME", ""),
+			Password: env("TASK_MANAGER_SMTP_PASSWORD", ""),
+			From:     env("TASK_MANAGER_SMTP_FROM", ""),
+		},
+		Log: LogConfig{
+			Level:  env("TASK_MANAGER_LOG_LEVEL", "info"),
+			Format: env("TASK_MANAGER_LOG_FORMAT", "json"),
+		},
 	}
 
-	if cfg.Server.Port == 0 {
-		cfg.Server.Port = 8080
-	}
-	if cfg.Auth.JWTExpiryHours == 0 {
-		cfg.Auth.JWTExpiryHours = 24
-	}
-	if cfg.Auth.LoginLockAttempts == 0 {
-		cfg.Auth.LoginLockAttempts = 5
-	}
-	if cfg.Auth.LoginLockMinutes == 0 {
-		cfg.Auth.LoginLockMinutes = 15
-	}
-	if cfg.Scheduler.NotificationScanInterval == "" {
-		cfg.Scheduler.NotificationScanInterval = "10m"
-	}
-	if cfg.SMTP.Port == 0 {
-		cfg.SMTP.Port = 587
-	}
-
-	return &cfg, nil
+	return cfg, nil
 }

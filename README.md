@@ -1,6 +1,6 @@
-# 计时器 — 运维计时管理系统
+# 任务管理器 — 运维任务管理系统
 
-面向运维工程师的专项计时管理系统，提供倒计时/正计时、项目聚合、TODO待办、通知提醒等功能。
+面向运维工程师的专项任务管理系统，提供倒计时/正计时、项目聚合、TODO待办、通知提醒、日程管理等功能。
 
 ## 功能特性
 
@@ -8,8 +8,9 @@
 - **项目管理**：将相关计时单元归属到项目中统一管理
 - **TODO待办**：轻量级待办事项管理，支持分组和批量操作
 - **通知提醒**：后台定时扫描，自动生成到期/超期提醒
-- **单用户认证**：JWT + API Token 双认证方式
+- **认证方式**：JWT + API Token 双认证方式
 - **RESTful API**：完整的 REST API，支持脚本和第三方集成
+- **MCP 接入**：支持 AI 智能体通过 MCP + API Token 调用全部后端能力
 
 ## 技术栈
 
@@ -28,7 +29,7 @@
 ```bash
 cd ops-timer-backend
 go mod tidy
-go run ./cmd/server/ --config config.yaml
+go run ./cmd/server/
 ```
 
 默认管理员账户：`admin` / `admin123`
@@ -65,7 +66,7 @@ cd-v2/
 │   │   ├── dto/             # 数据传输对象
 │   │   ├── config/          # 配置管理
 │   │   └── pkg/             # 工具包
-│   ├── config.yaml          # 配置文件
+│   ├── env.example           # 环境变量模板
 │   └── Dockerfile
 ├── ops-timer-frontend/      # Vue 3 前端
 │   ├── src/
@@ -102,6 +103,89 @@ curl http://localhost:8080/api/v1/units \
   -H "X-API-Token: <your_api_token>"
 ```
 
+## MCP 接入（AI 智能体）
+
+后端内置 MCP 服务器（默认 `POST /mcp`），提供 **55 个专用工具**，覆盖全部后端功能。智能体通过一个 MCP 配置即可完全操控所有数据。
+
+### 一键获取配置
+
+访问 `GET /mcp/config` 即可获取可直接粘贴到 MCP 客户端的 JSON 配置片段：
+
+```bash
+curl http://localhost:8080/mcp/config
+```
+
+返回示例：
+
+```json
+{
+  "mcpServers": {
+    "ops-timer-mcp": {
+      "url": "https://your-domain.com/mcp",
+      "headers": {
+        "X-API-Token": "<your-api-token>"
+      }
+    }
+  }
+}
+```
+
+将 `mcpServers` 部分粘贴到你的 MCP 客户端配置中（Cursor Settings → MCP、Claude Desktop `mcp_config.json` 等），替换 `<your-api-token>` 为你的真实 Token 即可。
+
+### 可用工具分类（55 个）
+
+| 模块 | 工具数 | 说明 |
+|------|--------|------|
+| 计时单元 | 10 | 完整 CRUD + 状态变更 + 步进/设值 + 日志 + 汇总 |
+| 项目 | 6 | 完整 CRUD + 查看项目下的单元 |
+| 待办 | 11 | 完整 CRUD + 状态 + 批量操作 + 分组管理（4 个） |
+| 通知 | 5 | 列表 + 标记已读 + 全部已读 + 未读数 + 删除 |
+| 日程 | 7 | 完整 CRUD + 关联/移除资源 |
+| 钱包 | 5 | 完整 CRUD + 详情 |
+| 收支分类 | 4 | 完整 CRUD |
+| 收支记录 | 5 | 完整 CRUD + 详情 |
+| 预算统计 | 1 | 汇总（按钱包/日期范围） |
+| 通用代理 | 1 | `backend_request`（任意 HTTP 调用兜底） |
+
+### 调用示例
+
+```bash
+# 使用专用工具创建待办
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "X-API-Token: <your_api_token>" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "todo_create",
+      "arguments": {
+        "title": "部署生产环境",
+        "priority": "high",
+        "due_date": "2026-04-10"
+      }
+    }
+  }'
+
+# 使用通用工具（兜底）
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "X-API-Token: <your_api_token>" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "name": "backend_request",
+      "arguments": {
+        "method": "GET",
+        "path": "/api/v1/projects"
+      }
+    }
+  }'
+```
+
 ## API 文档（OpenAPI）
 
 后端 HTTP 接口的 **OpenAPI 3.0** 规范位于：
@@ -113,17 +197,18 @@ curl http://localhost:8080/api/v1/units \
 
 ## 配置说明
 
-默认读取工作目录下的 `config.yaml`（可用 `-config` 指定路径）。**若该文件不存在**，则不从磁盘加载 YAML，仅使用环境变量 `TIMER_*` 与程序内默认值（适合 Docker 只注入环境变量、不挂载配置文件）。
+所有配置通过 `TASK_MANAGER_*` 环境变量读取，也可将变量写入 `.env` 文件（放在可执行文件同目录），程序启动时自动加载。
 
-参考模板：`ops-timer-backend/config.yaml`；**环境变量键名示例**（全量 `TIMER_*`）：[`ops-timer-backend/env.example`](ops-timer-backend/env.example)。
+环境变量模板：[`ops-timer-backend/env.example`](ops-timer-backend/env.example)。
 
-| 配置项 | 说明 | 默认值 |
+| 环境变量 | 说明 | 默认值 |
 |--------|------|--------|
-| `server.port` | 服务端口 | 8080 |
-| `database.driver` | 数据库驱动 | sqlite |
-| `database.dsn` | 数据库连接 | ./data/timer.db |
-| `auth.jwt_secret` | JWT 密钥 | 需修改 |
-| `auth.jwt_expiry_hours` | JWT 过期时间（小时） | 24 |
-| `scheduler.notification_scan_interval` | 通知扫描间隔 | 1h |
-
-有配置文件时，各项均可被环境变量覆盖；无配置文件时则完全依赖环境变量。前缀均为 `TIMER_`，嵌套键中的 `.` 写成 `_`，如 `TIMER_AUTH_JWT_SECRET`、`TIMER_DATABASE_DSN`。
+| `TASK_MANAGER_SERVER_PORT` | 服务端口 | 8080 |
+| `TASK_MANAGER_DATABASE_DRIVER` | 数据库驱动 | sqlite |
+| `TASK_MANAGER_DATABASE_DSN` | 数据库连接 | ./data/task_manager.db |
+| `TASK_MANAGER_AUTH_JWT_SECRET` | JWT 密钥 | 需修改 |
+| `TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS` | JWT 过期时间（小时） | 24 |
+| `TASK_MANAGER_SCHEDULER_NOTIFICATION_SCAN_INTERVAL` | 通知扫描间隔 | 10m |
+| `TASK_MANAGER_MCP_ENABLED` | 是否启用 MCP | true |
+| `TASK_MANAGER_MCP_PATH` | MCP 路由路径 | /mcp |
+| `TASK_MANAGER_MCP_EXTERNAL_URL` | MCP 对外地址（用于配置端点自动生成 URL） | 自动检测 |

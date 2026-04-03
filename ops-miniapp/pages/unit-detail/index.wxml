@@ -1,0 +1,102 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="loading-wrap">
+    <t-loading theme="dots" size="80rpx" />
+  </view>
+  <view wx:elif="{{unit}}" class="content">
+    <!-- 单元信息卡 -->
+    <view class="unit-card" style="border-left:8rpx solid {{unit.priorityColor}}">
+      <view class="unit-header">
+        <view>
+          <text class="unit-title">{{unit.title}}</text>
+          <view class="unit-meta">
+            <view class="meta-tag" style="background:{{unit.priorityColor}}20;">
+              <text style="color:{{unit.priorityColor}};font-size:22rpx;">{{unit.priority === 'critical' ? '紧急' : unit.priority === 'high' ? '高' : unit.priority === 'normal' ? '普通' : '低'}}</text>
+            </view>
+            <view class="meta-tag" style="background:#e5f2ff;">
+              <text style="color:#007aff;font-size:22rpx;">{{unit.typeLabel}}</text>
+            </view>
+            <view class="meta-tag" style="background:{{unit.status === 'active' ? '#d1f5d3' : '#f2f2f7'}};">
+              <text style="color:{{unit.status === 'active' ? '#34c759' : '#8e8e93'}};font-size:22rpx;">{{unit.status === 'active' ? '活跃' : unit.status === 'paused' ? '已暂停' : unit.status === 'completed' ? '已完成' : '已归档'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 进度展示 -->
+      <view class="progress-wrap">
+        <text class="progress-text">{{unit.progressText}}</text>
+        <view wx:if="{{unit.progressPct > 0}}" class="progress-bar-wrap">
+          <view class="progress-bar-bg">
+            <view class="progress-bar-fill" style="width:{{unit.progressPct}}%;background:{{unit.priorityColor}}"></view>
+          </view>
+          <text class="progress-pct">{{unit.progressPct}}%</text>
+        </view>
+      </view>
+
+      <view wx:if="{{unit.description}}" class="unit-desc">
+        <text class="unit-desc-text">{{unit.description}}</text>
+      </view>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view class="actions-card">
+      <!-- 数量类型：步进操作 -->
+      <view wx:if="{{unit.type === 'count_countdown' || unit.type === 'count_countup'}}" class="step-actions">
+        <view class="step-btn step-btn--down" bind:tap="stepDown">
+          <t-icon name="minus" size="44rpx" color="#ff3b30" />
+          <text class="step-label">-{{unit.step || 1}}</text>
+        </view>
+        <view class="step-current">
+          <text class="step-num">{{unit.current_value || 0}}</text>
+          <text class="step-unit">{{unit.unit_label}}</text>
+        </view>
+        <view class="step-btn step-btn--up" bind:tap="stepUp">
+          <t-icon name="add" size="44rpx" color="#34c759" />
+          <text class="step-label">+{{unit.step || 1}}</text>
+        </view>
+      </view>
+
+      <view class="action-row">
+        <t-button
+          size="small"
+          theme="{{unit.status === 'active' ? 'warning' : 'primary'}}"
+          variant="outline"
+          bind:tap="togglePause"
+          wx:if="{{unit.status === 'active' || unit.status === 'paused'}}"
+        >
+          {{unit.status === 'active' ? '暂停' : '恢复'}}
+        </t-button>
+        <t-button
+          size="small"
+          theme="success"
+          variant="outline"
+          bind:tap="markComplete"
+          wx:if="{{unit.status !== 'completed'}}"
+        >
+          标记完成
+        </t-button>
+      </view>
+    </view>
+
+    <!-- 操作日志 -->
+    <view class="section-title">操作日志</view>
+    <view class="logs-card">
+      <view wx:if="{{logs.length === 0}}" class="empty-tip">
+        <text class="empty-text">暂无日志记录</text>
+      </view>
+      <view wx:else>
+        <view wx:for="{{logs}}" wx:key="id" class="log-item">
+          <view class="log-delta" style="color:{{item.delta > 0 ? '#34c759' : '#ff3b30'}}">
+            <text>{{item.deltaSign}}{{item.delta}}</text>
+          </view>
+          <view class="log-info">
+            <text class="log-date">{{item.dateText}}</text>
+            <text wx:if="{{item.note}}" class="log-note">{{item.note}}</text>
+          </view>
+          <text class="log-value">→ {{item.value_after}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+  <view style="height:80rpx;"></view>
+</view>

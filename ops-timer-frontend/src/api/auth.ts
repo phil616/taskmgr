@@ -24,7 +24,4 @@ export const authApi = {
 
   /** 查询 SMTP 是否已在服务端配置 */
   smtpStatus: () => get<{ enabled: boolean }>('/auth/smtp-status'),
-
-  /** 查询 OAuth 是否已在服务端启用 */
-  oauthConfig: () => get<{ enabled: boolean }>('/auth/oauth/config'),
 }

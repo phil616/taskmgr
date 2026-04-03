@@ -1,6 +1,55 @@
 main:
 
   push:
+    # ── 前端：构建 + 部署到 EdgeOne Pages ──
+    - name: 前端部署
+      docker:
+        image: node:20
+        volumes:
+          - /root/.npm
+      ifModify:
+        - "ops-timer-frontend/**"
+      stages:
+        - name: 安装依赖
+          script: |
+            cd ops-timer-frontend
+            npm ci
+
+        - name: 构建打包
+          script: |
+            cd ops-timer-frontend
+            echo "VITE_API_BASE_URL=https://countdown-api.dreamreflex.com/api/v1" > .env.production
+            echo "VITE_COMMIT_SHA=${CNB_COMMIT}" >> .env.production
+            npm run build
+
+        - name: Deploy to EdgeOne Pages
+          imports:
+            - https://cnb.cool/greenshadecapital/dreamreflex/assets-secrets/-/blob/main/api-server.yml
+          script: npx edgeone pages deploy ./ops-timer-frontend/dist/ -n dreamreflex-countdown -t $EDGEONE_API_TOKEN
+
+        - name: 构建成功通知
+          image: cnbcool/webhook
+          imports:
+            - https://cnb.cool/greenshadecapital/dreamreflex/assets-secrets/-/blob/main/api-server.yml
+          settings:
+            urls:
+              - https://api.dreamreflex.com/api/email/send-common
+            method: POST
+            content_type: application/json
+            template: |
+              {
+                "title": "前端构建部署成功",
+                "content": "仓库{{ CNB_REPO_SLUG }}前端构建成功，URL：{{ CNB_REPO_URL_HTTPS }}",
+                "message_id": "{{ CNB_BRANCH_SHA }}",
+                "recipients": ["phil616@163.com"]
+              }
+            headers:
+              - "x-api-key=${UPLOAD_API_KEY}"
+            valid_response_codes: [200, 201, 204]
+            skip_verify: false
+            debug: true
+
+    # ── 后端：Docker 构建 + 部署到 S2 ──
     - services:
         - docker
       imports: https://cnb.cool/greenshadecapital/dreamreflex/devops-server-secrets/-/blob/main/s2-server.yml
@@ -8,22 +57,20 @@ main:
         - name: docker login
           script: docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
 
-        # 构建：固定标签 prod（可选地同时打上 commit 标签以便审计/回滚）
         - name: docker build
           script: |
             docker build \
+              -f ops-timer-backend/Dockerfile \
               -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:prod \
               -t ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_COMMIT} \
-              .
+              ops-timer-backend/
 
-        # 推送：至少推 :prod；（可选）同时推 :commit
         - name: docker push
           script: |
             docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:prod
             docker push ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:${CNB_COMMIT}
 
-        # 远端部署：仅使用固定标签 :prod
-        - name: 通过 ssh 执行命令
+        - name: 通过 ssh 部署后端
           image: tencentcom/ssh
           settings:
             host:
@@ -34,38 +81,39 @@ main:
             command_timeout: 2m
             script: |
               set -euo pipefail
-
               cd /root/
               docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
 
-              # 停并删旧容器（修正 rm 笔误）
-              docker stop dreamreflex-countdown || true
-              docker rm   dreamreflex-countdown || true
+              mkdir -p /root/ops-timer-data
 
-              # 启新容器：只用固定标签 prod，并确保每次拉最新
-              docker run -d --network host --name dreamreflex-countdown \
+              docker stop ops-task-manager || true
+              docker rm   ops-task-manager || true
+
+              docker run -d --network host --name ops-task-manager \
                 --pull=always \
                 --restart unless-stopped \
-                -p 5003:5003 \
-                -e PROJECT_NAME="${DEVOPS_COUNTDOWN_PROJECT_NAME}" \
-                -e API_V1_STR="${DEVOPS_COUNTDOWN_API_V1_STR}" \
-                -e SECRET_KEY="${DEVOPS_COUNTDOWN_SECRET_KEY}" \
-                -e ACCESS_TOKEN_EXPIRE_MINUTES="${DEVOPS_COUNTDOWN_ACCESS_TOKEN_EXPIRE_MINUTES}" \
-                -e FIRST_SUPERUSER="${DEVOPS_COUNTDOWN_FIRST_SUPERUSER}" \
-                -e FIRST_SUPERUSER_PASSWORD="${DEVOPS_COUNTDOWN_FIRST_SUPERUSER_PASSWORD}" \
-                -e MONGODB_URL="${DEVOPS_COUNTDOWN_MONGODB_URL}" \
-                -e MONGODB_DB_NAME="${DEVOPS_COUNTDOWN_MONGODB_DB_NAME}" \
-                -e RESEND_API_KEY="${DEVOPS_COUNTDOWN_RESEND_API_KEY}" \
-                -e EMAILS_FROM_NAME="${DEVOPS_COUNTDOWN_EMAILS_FROM_NAME}" \
-                -e EMAILS_FROM_EMAIL="${DEVOPS_COUNTDOWN_EMAILS_FROM_EMAIL}" \
-                -e EMAILS_TO_TOKEN_TIMEOUT_MINUTES="${DEVOPS_COUNTDOWN_EMAILS_TO_TOKEN_TIMEOUT_MINUTES}" \
-                -e BUILD_SHA="${CNB_COMMIT}" \
+                -v /root/ops-timer-data:/app/data \
+                -e TASK_MANAGER_SERVER_HOST=0.0.0.0 \
+                -e TASK_MANAGER_SERVER_PORT=5003 \
+                -e TASK_MANAGER_SERVER_CORS_ORIGINS="${DEVOPS_OPS_TIMER_CORS_ORIGINS}" \
+                -e TASK_MANAGER_DATABASE_DRIVER=sqlite \
+                -e TASK_MANAGER_DATABASE_DSN=./data/task_manager.db \
+                -e TASK_MANAGER_AUTH_JWT_SECRET="${DEVOPS_OPS_TIMER_JWT_SECRET}" \
+                -e TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS=24 \
+                -e TASK_MANAGER_MCP_ENABLED=true \
+                -e TASK_MANAGER_MCP_PATH=/mcp \
+                -e TASK_MANAGER_SMTP_HOST="${DEVOPS_OPS_TIMER_SMTP_HOST}" \
+                -e TASK_MANAGER_SMTP_PORT=587 \
+                -e TASK_MANAGER_SMTP_USERNAME="${DEVOPS_OPS_TIMER_SMTP_USERNAME}" \
+                -e TASK_MANAGER_SMTP_PASSWORD="${DEVOPS_OPS_TIMER_SMTP_PASSWORD}" \
+                -e TASK_MANAGER_SMTP_FROM="${DEVOPS_OPS_TIMER_SMTP_FROM}" \
+                -e TASK_MANAGER_LOG_LEVEL=info \
+                -e TASK_MANAGER_LOG_FORMAT=json \
                 ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:prod
 
-              # （可选）清理：保留当前仓库正在运行的镜像，其余删除；并清 dangling 层
               repo="${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}"
-              running_img_id="$(docker inspect -f '{{.Image}}' dreamreflex-countdown || true)"   # sha256:...
-              docker images "${repo}" -q | grep -v "${running_img_id#sha256:}" | xargs -r docker rmi -f || true
+              running_img_id="\$(docker inspect -f '{{.Image}}' ops-task-manager || true)"
+              docker images "\${repo}" -q | grep -v "\${running_img_id#sha256:}" | xargs -r docker rmi -f || true
               docker image prune -f || true
               
 $:

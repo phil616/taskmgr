@@ -1,0 +1,36 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/dashboard/index",
+    "pages/todos/index",
+    "pages/schedule/index",
+    "pages/budget/index",
+    "pages/settings/index",
+    "pages/budget-detail/index",
+    "pages/budget-categories/index",
+    "pages/units/index",
+    "pages/unit-detail/index"
+  ],
+  "tabBar": {
+    "custom": true,
+    "list": [
+      { "pagePath": "pages/dashboard/index", "text": "首页" },
+      { "pagePath": "pages/todos/index", "text": "待办" },
+      { "pagePath": "pages/schedule/index", "text": "日程" },
+      { "pagePath": "pages/budget/index", "text": "预算" },
+      { "pagePath": "pages/settings/index", "text": "设置" }
+    ]
+  },
+  "window": {
+    "navigationStyle": "default",
+    "navigationBarTitleText": "个人任务管理器",
+    "navigationBarBackgroundColor": "@navBgColor",
+    "navigationBarTextStyle": "@navTxtStyle",
+    "backgroundColor": "@bgColor",
+    "backgroundTextStyle": "@bgTextStyle"
+  },
+  "darkmode": true,
+  "themeLocation": "theme.json",
+  "usingComponents": {},
+  "sitemapLocation": "sitemap.json"
+}

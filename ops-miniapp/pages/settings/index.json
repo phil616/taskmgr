@@ -1,0 +1,11 @@
+{
+  "navigationBarTitleText": "系统设置",
+  "usingComponents": {
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-input": "tdesign-miniprogram/input/input",
+    "t-cell": "tdesign-miniprogram/cell/cell",
+    "t-cell-group": "tdesign-miniprogram/cell-group/cell-group",
+    "custom-tab-bar": "/custom-tab-bar/index"
+  }
+}

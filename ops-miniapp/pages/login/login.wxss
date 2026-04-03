@@ -1,0 +1,117 @@
+page {
+  background-color: var(--td-bg-color-page);
+  height: 100%;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 160rpx 48rpx 40rpx;
+  box-sizing: border-box;
+  background: var(--td-bg-color-page);
+}
+
+.login-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 80rpx;
+}
+
+.login-icon-wrap {
+  width: 160rpx;
+  height: 160rpx;
+  background: var(--td-brand-color);
+  border-radius: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 16rpx 48rpx rgba(0, 122, 255, 0.3);
+  margin-bottom: 40rpx;
+}
+
+.login-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: var(--td-text-color-primary);
+  letter-spacing: 2rpx;
+}
+
+.login-subtitle {
+  font-size: 28rpx;
+  color: var(--td-text-color-secondary);
+  margin-top: 16rpx;
+}
+
+.login-card {
+  width: 100%;
+  background: var(--td-bg-color-container);
+  border-radius: var(--td-radius-extra-large);
+  padding: 48rpx 40rpx;
+  box-sizing: border-box;
+  box-shadow: 0 8rpx 40rpx rgba(0, 0, 0, 0.06);
+}
+
+.form-item {
+  margin-bottom: 28rpx;
+}
+
+.error-msg {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24rpx;
+  padding: 20rpx 24rpx;
+  background: var(--td-error-color-1);
+  border-radius: var(--td-radius-default);
+  gap: 12rpx;
+}
+
+.error-text {
+  font-size: 26rpx;
+  color: var(--td-error-color-6);
+}
+
+.login-btn {
+  margin-top: 20rpx !important;
+}
+
+.server-setting-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 40rpx;
+  padding: 16rpx;
+  gap: 8rpx;
+}
+
+.server-text {
+  font-size: 26rpx;
+  color: var(--td-text-color-placeholder);
+}
+
+.server-panel {
+  width: 100%;
+  background: var(--td-bg-color-container);
+  border-radius: var(--td-radius-extra-large);
+  padding: 36rpx;
+  box-sizing: border-box;
+  margin-top: 32rpx;
+  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
+}
+
+.server-panel-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+  margin-bottom: 24rpx;
+}
+
+.server-hint {
+  font-size: 24rpx;
+  color: var(--td-text-color-placeholder);
+  display: block;
+  margin-top: 20rpx;
+  line-height: 1.7;
+}

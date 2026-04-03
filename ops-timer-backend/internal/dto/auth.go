@@ -20,14 +20,16 @@ type UserResponse struct {
 }
 
 type UpdateProfileRequest struct {
-	Username    string `json:"username" binding:"omitempty,min=3,max=32"`
+	// alphanum 限制用户名仅含字母和数字，防止特殊字符滥用
+	Username    string `json:"username" binding:"omitempty,min=3,max=32,alphanum"`
 	DisplayName string `json:"display_name" binding:"omitempty,min=1,max=64"`
 	Email       string `json:"email" binding:"omitempty,email,max=128"`
 }
 
 type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=6"`
+	// 新密码至少 8 位，最多 72 位（bcrypt 截断限制）
+	NewPassword string `json:"new_password" binding:"required,min=8,max=72"`
 }
 
 type TokenResponse struct {

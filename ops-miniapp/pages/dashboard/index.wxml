@@ -1,0 +1,120 @@
+<view class="page">
+  <!-- 顶部欢迎栏 -->
+  <view class="header">
+    <view class="header-left">
+      <text class="header-title">个人任务管理器</text>
+      <text class="header-sub">{{user.display_name || user.username || '用户'}}</text>
+    </view>
+    <view class="header-right">
+      <view class="notif-btn" bind:tap="fetchDashboard">
+        <t-icon name="refresh" size="44rpx" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="loading-wrap">
+    <t-loading theme="dots" size="80rpx" />
+  </view>
+
+  <view wx:else>
+    <!-- 统计卡片 -->
+    <view class="stats-grid">
+      <view class="stat-card stat-primary">
+        <view class="stat-num">{{summary.total_active || 0}}</view>
+        <view class="stat-label">活跃单元</view>
+        <t-icon name="time" size="64rpx" color="rgba(255,255,255,0.3)" class="stat-icon" />
+      </view>
+      <view class="stat-card stat-error">
+        <view class="stat-num">{{(summary.expiring_count || 0) + (summary.expired_count || 0)}}</view>
+        <view class="stat-label">告警单元</view>
+        <t-icon name="error-circle" size="64rpx" color="rgba(255,255,255,0.3)" class="stat-icon" />
+      </view>
+      <view class="stat-card stat-warning">
+        <view class="stat-num">{{pendingCount}}</view>
+        <view class="stat-label">待办事项</view>
+        <t-icon name="check-circle" size="64rpx" color="rgba(255,255,255,0.3)" class="stat-icon" />
+      </view>
+      <view class="stat-card stat-info">
+        <view class="stat-num">{{unreadCount}}</view>
+        <view class="stat-label">未读通知</view>
+        <t-icon name="notification" size="64rpx" color="rgba(255,255,255,0.3)" class="stat-icon" />
+      </view>
+    </view>
+
+    <!-- 告警单元 -->
+    <view class="section-card">
+      <view class="section-header">
+        <view class="section-title-wrap">
+          <t-icon name="error-circle" size="36rpx" color="#ff3b30" />
+          <text class="section-title">告警单元</text>
+        </view>
+        <view class="section-more" bind:tap="goUnits">查看全部</view>
+      </view>
+      <view wx:if="{{alertUnits.length === 0}}" class="empty-tip">
+        <t-icon name="check-circle" size="64rpx" color="#c7c7cc" />
+        <text class="empty-text">暂无告警单元</text>
+      </view>
+      <view wx:else>
+        <view
+          wx:for="{{alertUnits}}"
+          wx:key="id"
+          class="unit-item"
+          bind:tap="goUnitDetail"
+          data-id="{{item.id}}"
+        >
+          <view class="unit-indicator" style="background:{{item.alertColor}}"></view>
+          <view class="unit-info">
+            <text class="unit-name">{{item.title}}</text>
+            <text class="unit-time">{{item.timeText}}</text>
+          </view>
+          <view class="unit-badge" style="background:{{item.alertColor}}20;border:1rpx solid {{item.alertColor}}40;">
+            <text style="color:{{item.alertColor}};font-size:22rpx;">{{item.alertLabel}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 待办事项 -->
+    <view class="section-card">
+      <view class="section-header">
+        <view class="section-title-wrap">
+          <t-icon name="check-circle" size="36rpx" color="#ff9500" />
+          <text class="section-title">待办事项</text>
+        </view>
+        <view class="section-more" bind:tap="goTodos">查看全部</view>
+      </view>
+      <view wx:if="{{recentTodos.length === 0}}" class="empty-tip">
+        <t-icon name="check-circle-filled" size="64rpx" color="#c7c7cc" />
+        <text class="empty-text">暂无待办事项</text>
+      </view>
+      <view wx:else>
+        <view
+          wx:for="{{recentTodos}}"
+          wx:key="id"
+          class="todo-item"
+        >
+          <view
+            class="todo-check {{item.status === 'done' ? 'todo-check--done' : ''}}"
+            bind:tap="toggleTodo"
+            data-id="{{item.id}}"
+            data-status="{{item.status}}"
+          >
+            <t-icon
+              name="{{item.status === 'done' ? 'check-circle-filled' : 'circle'}}"
+              size="40rpx"
+              color="{{item.status === 'done' ? '#34c759' : '#c7c7cc'}}"
+            />
+          </view>
+          <view class="todo-info">
+            <text class="todo-title {{item.status === 'done' ? 'todo-done' : ''}}">{{item.title}}</text>
+            <text wx:if="{{item.dueDateText}}" class="todo-due">{{item.dueDateText}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部 tabBar 占位 -->
+  <view style="height: calc(120rpx + env(safe-area-inset-bottom));"></view>
+</view>

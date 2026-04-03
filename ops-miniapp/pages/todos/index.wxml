@@ -1,0 +1,208 @@
+<view class="page">
+  <!-- 顶部操作栏 -->
+  <view class="top-bar">
+    <view class="top-bar-filters">
+      <picker mode="selector" range="{{statusOptions}}" range-key="label" bind:change="onStatusChange">
+        <view class="filter-btn">
+          <text class="filter-text">{{statusFilterLabel}}</text>
+          <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+        </view>
+      </picker>
+      <picker mode="selector" range="{{priorityOptions}}" range-key="label" bind:change="onPriorityChange">
+        <view class="filter-btn">
+          <text class="filter-text">{{priorityFilterLabel}}</text>
+          <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+        </view>
+      </picker>
+    </view>
+    <view class="top-bar-actions">
+      <view class="action-btn" bind:tap="openCreateGroup">
+        <t-icon name="folder-add" size="40rpx" color="#007aff" />
+      </view>
+      <view class="action-btn-primary" bind:tap="openCreateTodo">
+        <t-icon name="add" size="40rpx" color="#fff" />
+      </view>
+    </view>
+  </view>
+
+  <view class="content">
+    <!-- 分组侧边栏 -->
+    <scroll-view class="groups-sidebar" scroll-y>
+      <view
+        class="group-item {{selectedGroup === null ? 'group-item--active' : ''}}"
+        bind:tap="selectGroup"
+        data-val="{{null}}"
+      >
+        <t-icon name="list-bullet" size="32rpx" color="{{selectedGroup === null ? '#007aff' : '#8e8e93'}}" />
+        <text class="group-name">全部</text>
+        <text class="group-count">{{totalCount}}</text>
+      </view>
+      <view
+        class="group-item {{selectedGroup === 'none' ? 'group-item--active' : ''}}"
+        bind:tap="selectGroup"
+        data-val="none"
+      >
+        <t-icon name="inbox" size="32rpx" color="{{selectedGroup === 'none' ? '#007aff' : '#8e8e93'}}" />
+        <text class="group-name">未分组</text>
+      </view>
+      <view class="groups-divider"></view>
+      <view
+        wx:for="{{groups}}"
+        wx:key="id"
+        class="group-item {{selectedGroup === item.id ? 'group-item--active' : ''}}"
+        bind:tap="selectGroup"
+        data-val="{{item.id}}"
+      >
+        <view class="group-dot" style="background:{{item.color || '#007aff'}}"></view>
+        <text class="group-name">{{item.name}}</text>
+        <text class="group-count">{{item.todo_count}}</text>
+        <view class="group-del" catchtap="deleteGroup" data-id="{{item.id}}">
+          <t-icon name="delete" size="28rpx" color="#ff3b30" />
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 待办列表 -->
+    <view class="todos-list">
+      <view wx:if="{{loading}}" class="loading-wrap">
+        <t-loading theme="dots" size="64rpx" />
+      </view>
+      <view wx:elif="{{todos.length === 0}}" class="empty-wrap">
+        <t-icon name="task-checked-1" size="96rpx" color="#c7c7cc" />
+        <text class="empty-text">暂无待办事项</text>
+        <t-button size="small" theme="primary" variant="outline" bind:tap="openCreateTodo">新建待办</t-button>
+      </view>
+      <view wx:else>
+        <view
+          wx:for="{{todos}}"
+          wx:key="id"
+          class="todo-card"
+        >
+          <view
+            class="todo-check"
+            bind:tap="toggleTodo"
+            data-id="{{item.id}}"
+            data-status="{{item.status}}"
+          >
+            <t-icon
+              name="{{item.status === 'done' ? 'check-circle-filled' : 'circle'}}"
+              size="44rpx"
+              color="{{item.status === 'done' ? '#34c759' : '#c7c7cc'}}"
+            />
+          </view>
+          <view class="todo-body">
+            <text class="todo-title {{item.status === 'done' ? 'todo-done' : ''}}">{{item.title}}</text>
+            <view class="todo-meta">
+              <view class="meta-tag" style="background:{{item.priorityColor}}20;">
+                <text style="color:{{item.priorityColor}};font-size:20rpx;">{{item.priorityLabel}}</text>
+              </view>
+              <view class="meta-tag" style="background:{{item.statusColor}}15;">
+                <text style="color:{{item.statusColor}};font-size:20rpx;">{{item.statusLabel}}</text>
+              </view>
+              <text wx:if="{{item.dueDateText}}" class="todo-due">{{item.dueDateText}}</text>
+            </view>
+          </view>
+          <view class="todo-actions">
+            <view bind:tap="openEditTodo" data-todo="{{item}}">
+              <t-icon name="edit" size="36rpx" color="#8e8e93" />
+            </view>
+            <view bind:tap="deleteTodo" data-id="{{item.id}}">
+              <t-icon name="delete" size="36rpx" color="#ff3b30" />
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 底部 tabBar 占位 -->
+  <view style="height: calc(120rpx + env(safe-area-inset-bottom));"></view>
+
+  <!-- 新建/编辑 Todo 弹窗 -->
+  <t-popup visible="{{todoDialogVisible}}" placement="bottom" bind:visible-change="closeTodoDialog">
+    <view class="dialog-sheet">
+      <view class="dialog-handle"></view>
+      <view class="dialog-header">
+        <text class="dialog-title">{{editingTodo ? '编辑待办' : '新建待办'}}</text>
+        <view bind:tap="closeTodoDialog">
+          <t-icon name="close" size="44rpx" color="#8e8e93" />
+        </view>
+      </view>
+      <view class="dialog-body">
+        <view class="field-wrap">
+          <text class="field-label">标题 *</text>
+          <t-input
+            placeholder="请输入待办标题"
+            value="{{todoForm.title}}"
+            bind:change="onTodoTitleInput"
+          />
+        </view>
+        <view class="field-wrap">
+          <text class="field-label">描述</text>
+          <t-textarea
+            placeholder="详细描述（可选）"
+            value="{{todoForm.description}}"
+            bind:change="onTodoDescInput"
+            maxlength="500"
+          />
+        </view>
+        <view class="field-row">
+          <view class="field-wrap field-half">
+            <text class="field-label">优先级</text>
+            <picker mode="selector" range="{{priorityFormOptions}}" range-key="label" bind:change="onTodoPriorityChange">
+              <view class="picker-btn">
+                <text>{{todoForm.priority === 'low' ? '低' : todoForm.priority === 'normal' ? '普通' : todoForm.priority === 'high' ? '高' : '紧急'}}</text>
+                <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+          <view class="field-wrap field-half">
+            <text class="field-label">截止日期</text>
+            <picker mode="date" value="{{todoForm.due_date}}" bind:change="onTodoDueDateChange">
+              <view class="picker-btn">
+                <text>{{todoForm.due_date || '选择日期'}}</text>
+                <t-icon name="calendar" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+        </view>
+        <view class="field-wrap" wx:if="{{groups.length > 0}}">
+          <text class="field-label">分组</text>
+          <picker mode="selector" range="{{groups}}" range-key="name" bind:change="onTodoGroupChange">
+            <view class="picker-btn">
+              <text>{{todoForm.groupName || '无分组'}}</text>
+              <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+            </view>
+          </picker>
+        </view>
+        <t-button theme="primary" block size="large" loading="{{saving}}" bind:tap="saveTodo">
+          {{editingTodo ? '更新' : '创建'}}
+        </t-button>
+      </view>
+    </view>
+  </t-popup>
+
+  <!-- 新建分组弹窗 -->
+  <t-popup visible="{{groupDialogVisible}}" placement="bottom" bind:visible-change="closeGroupDialog">
+    <view class="dialog-sheet">
+      <view class="dialog-handle"></view>
+      <view class="dialog-header">
+        <text class="dialog-title">新建分组</text>
+        <view bind:tap="closeGroupDialog">
+          <t-icon name="close" size="44rpx" color="#8e8e93" />
+        </view>
+      </view>
+      <view class="dialog-body">
+        <view class="field-wrap">
+          <text class="field-label">分组名称 *</text>
+          <t-input placeholder="请输入分组名称" value="{{groupForm.name}}" bind:change="onGroupNameInput" />
+        </view>
+        <view class="field-wrap">
+          <text class="field-label">颜色</text>
+          <t-input placeholder="#007aff" value="{{groupForm.color}}" bind:change="onGroupColorInput" />
+        </view>
+        <t-button theme="primary" block size="large" bind:tap="saveGroup">创建分组</t-button>
+      </view>
+    </view>
+  </t-popup>
+</view>

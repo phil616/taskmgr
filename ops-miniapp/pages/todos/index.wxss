@@ -1,0 +1,153 @@
+page { background: var(--td-bg-color-page); }
+
+.page { display: flex; flex-direction: column; height: 100vh; }
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: var(--td-bg-color-container);
+  border-bottom: 1rpx solid var(--td-border-level-1-color);
+  flex-shrink: 0;
+}
+.top-bar-filters { display: flex; gap: 16rpx; }
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 20rpx;
+  background: var(--td-bg-color-page);
+  border-radius: var(--td-radius-extra-large);
+}
+.filter-text { font-size: 24rpx; color: var(--td-text-color-secondary); }
+.top-bar-actions { display: flex; gap: 16rpx; align-items: center; }
+.action-btn { padding: 8rpx; }
+.action-btn-primary {
+  width: 64rpx; height: 64rpx;
+  background: var(--td-brand-color);
+  border-radius: var(--td-radius-extra-large);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 分组侧边栏 */
+.groups-sidebar {
+  width: 180rpx;
+  background: var(--td-bg-color-container);
+  border-right: 1rpx solid var(--td-border-level-1-color);
+  flex-shrink: 0;
+  padding: 16rpx 0;
+}
+.group-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 20rpx;
+  gap: 10rpx;
+  position: relative;
+}
+.group-item--active {
+  background: var(--td-brand-color-light);
+  border-right: 4rpx solid var(--td-brand-color);
+}
+.group-dot {
+  width: 16rpx; height: 16rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.group-name {
+  font-size: 24rpx;
+  color: var(--td-text-color-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-item--active .group-name { color: var(--td-brand-color); font-weight: 500; }
+.group-count {
+  font-size: 20rpx;
+  color: var(--td-text-color-placeholder);
+  background: var(--td-bg-color-page);
+  padding: 2rpx 8rpx;
+  border-radius: 10rpx;
+}
+.group-del { padding: 4rpx; }
+.groups-divider { height: 1rpx; background: var(--td-border-level-1-color); margin: 8rpx 0; }
+
+/* 待办列表 */
+.todos-list { flex: 1; overflow-y: auto; padding: 16rpx; }
+
+.loading-wrap {
+  display: flex; justify-content: center; padding: 80rpx 0;
+}
+.empty-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 100rpx 0;
+  gap: 20rpx;
+}
+.empty-text { font-size: 28rpx; color: var(--td-text-color-placeholder); }
+
+.todo-card {
+  display: flex;
+  align-items: flex-start;
+  background: var(--td-bg-color-container);
+  border-radius: var(--td-radius-large);
+  padding: 20rpx 24rpx;
+  margin-bottom: 12rpx;
+  box-shadow: 0 2rpx 8rpx var(--td-shadow-1);
+}
+.todo-check { padding: 4rpx 16rpx 0 0; flex-shrink: 0; }
+.todo-body { flex: 1; min-width: 0; }
+.todo-title { font-size: 28rpx; color: var(--td-text-color-primary); display: block; line-height: 1.5; }
+.todo-done { text-decoration: line-through; color: var(--td-text-color-placeholder); }
+.todo-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8rpx; margin-top: 8rpx; }
+.meta-tag {
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+}
+.todo-due { font-size: 22rpx; color: var(--td-text-color-placeholder); }
+.todo-actions { display: flex; gap: 20rpx; align-items: center; padding-left: 16rpx; }
+
+/* 弹窗样式 */
+.dialog-sheet {
+  background: var(--td-bg-color-container);
+  border-radius: var(--td-radius-extra-large) 32rpx 0 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+  min-height: 300rpx;
+}
+.dialog-handle {
+  width: 80rpx; height: 8rpx;
+  background: var(--td-border-level-1-color);
+  border-radius: 4rpx;
+  margin: 20rpx auto 0;
+}
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 40rpx 16rpx;
+  border: 1rpx solid var(--td-border-level-1-color);
+}
+.dialog-title { font-size: 32rpx; font-weight: 600; color: var(--td-text-color-primary); }
+.dialog-body { padding: 32rpx 40rpx 40rpx; }
+.field-wrap { margin-bottom: 28rpx; }
+.field-label { font-size: 26rpx; color: var(--td-text-color-secondary); display: block; margin-bottom: 12rpx; }
+.field-row { display: flex; gap: 24rpx; }
+.field-half { flex: 1; }
+.picker-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 20rpx;
+  background: var(--td-bg-color-page);
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: var(--td-text-color-primary);
+}

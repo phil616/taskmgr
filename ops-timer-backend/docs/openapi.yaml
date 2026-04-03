@@ -1,15 +1,15 @@
 openapi: 3.0.3
 info:
-  title: 运维计时管理系统 API
+  title: 运维任务管理系统 API
   description: |
-    面向运维场景的计时、项目、待办与通知管理 REST API。
+    面向运维场景的任务、日程、项目、待办与通知管理 REST API。
 
     ## 认证
-    - **JWT**：在请求头添加 `Authorization: Bearer <token>`，`token` 由 `POST /api/v1/auth/login` 或 OAuth 回调获得。
+    - **JWT**：在请求头添加 `Authorization: Bearer <token>`，`token` 由 `POST /api/v1/auth/login` 获得。
     - **API Token**：在请求头添加 `X-API-Token: <api_token>`，适用于脚本与第三方集成（见 `GET /api/v1/auth/token`）。
 
     ## 统一响应体
-    除 `204 No Content`、OAuth 重定向及少数裸 JSON 外，成功响应体为：
+    除 `204 No Content` 及少数裸 JSON 外，成功响应体为：
     ```json
     { "code": 0, "message": "success", "data": { ... } }
     ```
@@ -44,8 +44,6 @@ tags:
     description: 健康检查（无需认证）
   - name: Auth
     description: 账号登录、资料与 API Token
-  - name: OAuth
-    description: OIDC/OAuth 单点登录（需服务端配置）
   - name: Units
     description: 计时单元（倒计时/正计时/计数等）
   - name: Projects
@@ -56,6 +54,18 @@ tags:
     description: 待办分组
   - name: Notifications
     description: 系统通知
+  - name: Schedules
+    description: 日程管理（含关联资源）
+  - name: Wallets
+    description: 钱包/账户管理
+  - name: BudgetCategories
+    description: 收支分类
+  - name: Transactions
+    description: 收支记录
+  - name: BudgetStats
+    description: 预算统计汇总
+  - name: MCP
+    description: MCP（Model Context Protocol）AI 智能体接入
 
 paths:
   /health:
@@ -295,89 +305,6 @@ paths:
                 $ref: "#/components/schemas/EnvelopeSuccess"
         "401":
           $ref: "#/components/responses/Unauthorized"
-
-  /api/v1/auth/oauth/config:
-    get:
-      tags: [OAuth]
-      summary: OAuth 是否启用（供前端展示登录入口）
-      operationId: oauthConfig
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: "#/components/schemas/EnvelopeSuccess"
-                  - type: object
-                    properties:
-                      data:
-                        type: object
-                        required: [enabled]
-                        properties:
-                          enabled:
-                            type: boolean
-
-  /api/v1/auth/oauth/login:
-    get:
-      tags: [OAuth]
-      summary: 跳转至 IdP 授权页
-      description: |
-        未启用 OAuth 时返回 `503`。成功时返回 **302**，`Location` 为 IdP 授权 URL。
-      operationId: oauthLogin
-      responses:
-        "302":
-          description: 重定向到 OAuth 提供商
-        "500":
-          $ref: "#/components/responses/InternalError"
-        "503":
-          description: OAuth 未启用
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: OAuth 未启用
-
-  /api/v1/auth/oauth/callback:
-    get:
-      tags: [OAuth]
-      summary: OAuth 授权回调（由 IdP 重定向调用）
-      description: |
-        成功时 **302** 重定向到前端 `frontend_url/oauth/callback?token=...`。
-        失败时可能 **302** 带 `error` 查询参数，或在未配置前端 URL 时返回 **400** JSON。
-      operationId: oauthCallback
-      parameters:
-        - name: code
-          in: query
-          schema:
-            type: string
-        - name: state
-          in: query
-          schema:
-            type: string
-        - name: error
-          in: query
-          schema:
-            type: string
-        - name: error_description
-          in: query
-          schema:
-            type: string
-      responses:
-        "302":
-          description: 重定向到前端或错误页
-        "400":
-          description: 参数错误或无法重定向（无 frontend_url）
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
 
   /api/v1/units:
     get:
@@ -1387,13 +1314,779 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  # ── Schedules ──────────────────────────────────────────────────────
+
+  /api/v1/schedules:
+    get:
+      tags: [Schedules]
+      summary: 分页查询日程列表
+      operationId: schedulesList
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          description: 范围起始 YYYY-MM-DD
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          description: 范围结束 YYYY-MM-DD
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [planned, in_progress, completed, cancelled]
+        - $ref: "#/components/parameters/page"
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 100
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccessWithMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/ScheduleResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Schedules]
+      summary: 创建日程
+      operationId: schedulesCreate
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleRequest"
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ScheduleResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/schedules/{id}:
+    parameters:
+      - $ref: "#/components/parameters/idPath"
+    get:
+      tags: [Schedules]
+      summary: 获取日程详情（含关联资源）
+      operationId: schedulesGet
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ScheduleResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Schedules]
+      summary: 更新日程
+      operationId: schedulesPut
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ScheduleResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Schedules]
+      summary: 部分更新日程
+      operationId: schedulesPatch
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ScheduleResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Schedules]
+      summary: 删除日程
+      operationId: schedulesDelete
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: 删除成功，无响应体
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/schedules/{id}/resources:
+    post:
+      tags: [Schedules]
+      summary: 为日程关联资源（项目/待办/计时单元）
+      operationId: schedulesAddResource
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddScheduleResourceRequest"
+      responses:
+        "201":
+          description: 已关联
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ScheduleResourceResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/schedules/{id}/resources/{resource_id}:
+    delete:
+      tags: [Schedules]
+      summary: 移除日程关联资源
+      operationId: schedulesRemoveResource
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+        - name: resource_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: 移除成功，无响应体
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Wallets ────────────────────────────────────────────────────────
+
+  /api/v1/wallets:
+    get:
+      tags: [Wallets]
+      summary: 获取钱包列表（含本月收支汇总）
+      operationId: walletsList
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/WalletResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Wallets]
+      summary: 创建钱包
+      operationId: walletsCreate
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWalletRequest"
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/WalletResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/wallets/{id}:
+    parameters:
+      - $ref: "#/components/parameters/idPath"
+    get:
+      tags: [Wallets]
+      summary: 获取钱包详情
+      operationId: walletsGet
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/WalletResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Wallets]
+      summary: 更新钱包
+      operationId: walletsPut
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWalletRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/WalletResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Wallets]
+      summary: 删除钱包（软删除）
+      operationId: walletsDelete
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: 删除成功，无响应体
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Budget Categories ──────────────────────────────────────────────
+
+  /api/v1/budget/categories:
+    get:
+      tags: [BudgetCategories]
+      summary: 获取收支分类列表
+      operationId: budgetCategoriesList
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: type
+          in: query
+          description: 筛选类型
+          schema:
+            type: string
+            enum: [income, expense, both]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CategoryResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [BudgetCategories]
+      summary: 创建自定义收支分类
+      operationId: budgetCategoriesCreate
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryRequest"
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CategoryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/budget/categories/{id}:
+    parameters:
+      - $ref: "#/components/parameters/idPath"
+    put:
+      tags: [BudgetCategories]
+      summary: 更新分类（系统内置分类不可修改）
+      operationId: budgetCategoriesPut
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCategoryRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/CategoryResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/BusinessError"
+    delete:
+      tags: [BudgetCategories]
+      summary: 删除自定义分类（系统分类和有关联交易的分类不可删除）
+      operationId: budgetCategoriesDelete
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: 删除成功，无响应体
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/BusinessError"
+
+  # ── Transactions ───────────────────────────────────────────────────
+
+  /api/v1/transactions:
+    get:
+      tags: [Transactions]
+      summary: 分页查询收支记录（按交易时间倒序）
+      operationId: transactionsList
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: wallet_id
+          in: query
+          schema:
+            type: string
+        - name: category_id
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [income, expense, transfer]
+        - name: start_date
+          in: query
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          schema:
+            type: string
+        - name: min_amount
+          in: query
+          schema:
+            type: number
+        - name: max_amount
+          in: query
+          schema:
+            type: number
+        - name: keyword
+          in: query
+          description: 备注关键词搜索
+          schema:
+            type: string
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccessWithMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/TransactionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Transactions]
+      summary: 新增收支记录（自动更新钱包余额）
+      operationId: transactionsCreate
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTransactionRequest"
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TransactionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/BusinessError"
+
+  /api/v1/transactions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/idPath"
+    get:
+      tags: [Transactions]
+      summary: 获取收支记录详情
+      operationId: transactionsGet
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TransactionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Transactions]
+      summary: 更新收支记录
+      operationId: transactionsPut
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTransactionRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TransactionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Transactions]
+      summary: 删除收支记录（软删除，自动回滚钱包余额）
+      operationId: transactionsDelete
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: 删除成功，无响应体
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ── Budget Stats ───────────────────────────────────────────────────
+
+  /api/v1/budget/stats:
+    get:
+      tags: [BudgetStats]
+      summary: 预算统计汇总（总收入/支出/净额/各分类占比）
+      operationId: budgetStats
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: wallet_id
+          in: query
+          description: 钱包 ID（不填则统计全部）
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          schema:
+            type: string
+        - name: end_date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/WalletStatResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── MCP ────────────────────────────────────────────────────────────
+
+  /mcp:
+    post:
+      tags: [MCP]
+      summary: MCP JSON-RPC 端点（AI 智能体接入）
+      description: |
+        接受 JSON-RPC 2.0 请求，支持 `initialize`、`tools/list`、`tools/call` 方法。
+        认证方式：`X-API-Token` 请求头或 `Authorization: Bearer <api_token>`。
+      operationId: mcpHandle
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method]
+              properties:
+                jsonrpc:
+                  type: string
+                  enum: ["2.0"]
+                method:
+                  type: string
+                  enum: [initialize, "tools/list", "tools/call"]
+                params:
+                  type: object
+                id:
+                  description: 请求 ID
+            examples:
+              initialize:
+                summary: 初始化握手
+                value:
+                  jsonrpc: "2.0"
+                  method: initialize
+                  id: 1
+              toolsList:
+                summary: 列出可用工具
+                value:
+                  jsonrpc: "2.0"
+                  method: "tools/list"
+                  id: 2
+              toolsCall:
+                summary: 调用工具
+                value:
+                  jsonrpc: "2.0"
+                  method: "tools/call"
+                  params:
+                    name: unit_list
+                    arguments:
+                      page: 1
+                      page_size: 10
+                  id: 3
+      responses:
+        "200":
+          description: JSON-RPC 响应
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jsonrpc:
+                    type: string
+                  id: {}
+                  result: {}
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: integer
+                      message:
+                        type: string
+        "401":
+          description: API Token 无效或缺失
+
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: 使用 `POST /api/v1/auth/login` 或 OAuth 回调获得的 access token。
+      description: 使用 `POST /api/v1/auth/login` 获得的 access token。
     ApiKeyAuth:
       type: apiKey
       in: header
@@ -2161,6 +2854,438 @@ components:
       type: object
       required: [count]
       properties:
+        count:
+          type: integer
+          format: int64
+
+    # ── Schedule Schemas ───────────────────────────────────────────────
+
+    CreateScheduleRequest:
+      type: object
+      required: [title, start_time, end_time]
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        description:
+          type: string
+        start_time:
+          type: string
+          description: ISO8601 格式
+        end_time:
+          type: string
+          description: ISO8601 格式
+        all_day:
+          type: boolean
+        color:
+          type: string
+          maxLength: 20
+        location:
+          type: string
+          maxLength: 256
+        status:
+          type: string
+          enum: [planned, in_progress, completed, cancelled]
+        recurrence_type:
+          type: string
+          enum: [none, daily, weekly, monthly, yearly]
+        recurrence_end:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+
+    UpdateScheduleRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        start_time:
+          type: string
+        end_time:
+          type: string
+        all_day:
+          type: boolean
+        color:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [planned, in_progress, completed, cancelled]
+        recurrence_type:
+          type: string
+          enum: [none, daily, weekly, monthly, yearly]
+        recurrence_end:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+
+    ScheduleResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        all_day:
+          type: boolean
+        color:
+          type: string
+        location:
+          type: string
+        status:
+          type: string
+        recurrence_type:
+          type: string
+        recurrence_end:
+          type: string
+          format: date-time
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        resources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleResourceResponse"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AddScheduleResourceRequest:
+      type: object
+      required: [resource_type, resource_id]
+      properties:
+        resource_type:
+          type: string
+          enum: [project, todo, unit]
+        resource_id:
+          type: string
+        note:
+          type: string
+          maxLength: 256
+
+    ScheduleResourceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        schedule_id:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+        note:
+          type: string
+        resource_title:
+          type: string
+        resource_color:
+          type: string
+        resource_status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Wallet Schemas ─────────────────────────────────────────────────
+
+    CreateWalletRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        type:
+          type: string
+          enum: [bank, cash, credit, alipay, wechat, other]
+        balance:
+          type: number
+        currency:
+          type: string
+          maxLength: 10
+        color:
+          type: string
+          maxLength: 20
+        icon:
+          type: string
+          maxLength: 64
+        description:
+          type: string
+          maxLength: 512
+        is_default:
+          type: boolean
+        sort_order:
+          type: integer
+
+    UpdateWalletRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [bank, cash, credit, alipay, wechat, other]
+        color:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        is_default:
+          type: boolean
+        sort_order:
+          type: integer
+
+    WalletResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        balance:
+          type: number
+        currency:
+          type: string
+        color:
+          type: string
+        icon:
+          type: string
+        description:
+          type: string
+        is_default:
+          type: boolean
+        sort_order:
+          type: integer
+        total_income:
+          type: number
+        total_expense:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ── Category Schemas ───────────────────────────────────────────────
+
+    CreateCategoryRequest:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        type:
+          type: string
+          enum: [income, expense, both]
+        color:
+          type: string
+          maxLength: 20
+        icon:
+          type: string
+          maxLength: 64
+        sort_order:
+          type: integer
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [income, expense, both]
+        color:
+          type: string
+          nullable: true
+        icon:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+
+    CategoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        color:
+          type: string
+        icon:
+          type: string
+        sort_order:
+          type: integer
+        is_system:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    # ── Transaction Schemas ────────────────────────────────────────────
+
+    CreateTransactionRequest:
+      type: object
+      required: [wallet_id, type, amount, transaction_at]
+      properties:
+        wallet_id:
+          type: string
+        category_id:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [income, expense, transfer]
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        note:
+          type: string
+          maxLength: 512
+        tags:
+          type: array
+          items:
+            type: string
+        transaction_at:
+          type: string
+          description: ISO8601 格式
+        to_wallet_id:
+          type: string
+          nullable: true
+          description: 仅 transfer 类型需要
+
+    UpdateTransactionRequest:
+      type: object
+      properties:
+        category_id:
+          type: string
+          nullable: true
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+        note:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        transaction_at:
+          type: string
+
+    TransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        wallet_id:
+          type: string
+        wallet_name:
+          type: string
+        category_id:
+          type: string
+          nullable: true
+        category_name:
+          type: string
+        category_icon:
+          type: string
+        category_color:
+          type: string
+        type:
+          type: string
+        amount:
+          type: number
+        note:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        transaction_at:
+          type: string
+          format: date-time
+        to_wallet_id:
+          type: string
+          nullable: true
+        to_wallet_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Budget Stats Schemas ───────────────────────────────────────────
+
+    WalletStatResponse:
+      type: object
+      properties:
+        total_income:
+          type: number
+        total_expense:
+          type: number
+        net_amount:
+          type: number
+        transaction_count:
+          type: integer
+        category_stats:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryStatItem"
+
+    CategoryStatItem:
+      type: object
+      properties:
+        category_id:
+          type: string
+        category_name:
+          type: string
+        category_icon:
+          type: string
+        category_color:
+          type: string
+        type:
+          type: string
+        total:
+          type: number
         count:
           type: integer
           format: int64

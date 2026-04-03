@@ -1,14 +1,12 @@
 package service
 
 import (
-	"crypto/rand"
 	"errors"
 	"ops-timer-backend/internal/config"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
 	"ops-timer-backend/internal/pkg/auth"
 	"ops-timer-backend/internal/repository"
-	"strings"
 	"sync"
 	"time"
 
@@ -213,69 +211,6 @@ func (s *AuthService) EnsureAdminExists(username, password string) error {
 
 func (s *AuthService) FindByAPIToken(token string) (*model.User, error) {
 	return s.userRepo.FindByAPIToken(token)
-}
-
-// OAuthLogin 通过 OAuth 信息查找或创建用户，并签发 JWT
-func (s *AuthService) OAuthLogin(email, name, sub string) (*dto.LoginResponse, error) {
-	user, err := s.userRepo.FindByEmail(email)
-	if err != nil {
-		// 用户不存在，自动创建
-		user, err = s.createOAuthUser(email, name)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// 更新显示名（如果有变化）
-		if name != "" && user.DisplayName != name {
-			user.DisplayName = name
-			_ = s.userRepo.Update(user)
-		}
-	}
-
-	token, err := s.jwtManager.GenerateToken(user.ID, user.Username)
-	if err != nil {
-		return nil, err
-	}
-
-	return &dto.LoginResponse{
-		Token: token,
-		User:  s.toUserResponse(user),
-	}, nil
-}
-
-func (s *AuthService) createOAuthUser(email, name string) (*model.User, error) {
-	// 用邮箱前缀作为用户名，若重复则追加后缀
-	base := strings.Split(email, "@")[0]
-	username := base
-	if _, err := s.userRepo.FindByUsername(username); err == nil {
-		username = base + "_oauth"
-	}
-
-	// OAuth 用户不使用密码登录，随机设置一个密码哈希
-	randomBytes := make([]byte, 16)
-	_, _ = rand.Read(randomBytes)
-	hash, _ := bcrypt.GenerateFromPassword(randomBytes, 12)
-
-	apiToken, _ := auth.GenerateAPIToken()
-
-	displayName := name
-	if displayName == "" {
-		displayName = base
-	}
-
-	user := &model.User{
-		ID:           uuid.New().String(),
-		Username:     username,
-		PasswordHash: string(hash),
-		DisplayName:  displayName,
-		Email:        email,
-		APIToken:     apiToken,
-	}
-
-	if err := s.userRepo.Create(user); err != nil {
-		return nil, err
-	}
-	return user, nil
 }
 
 func (s *AuthService) toUserResponse(user *model.User) dto.UserResponse {

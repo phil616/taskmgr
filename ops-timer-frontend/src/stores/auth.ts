@@ -17,16 +17,21 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('user', JSON.stringify(resp.data.user))
   }
 
+  /** 仅清理本地状态，不调用后端接口（供 401 拦截器等场景使用） */
+  function clearAuth() {
+    token.value = ''
+    user.value = null
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+  }
+
   async function logout() {
     try {
       await authApi.logout()
     } catch {
       // ignore
     }
-    token.value = ''
-    user.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    clearAuth()
   }
 
   async function fetchProfile() {
@@ -35,22 +40,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('user', JSON.stringify(resp.data))
   }
 
-  /** OAuth 回调后直接用 token 建立会话 */
-  async function loginWithToken(jwt: string) {
-    token.value = jwt
-    localStorage.setItem('token', jwt)
-    // 拉取用户信息
-    try {
-      const resp = await authApi.getProfile()
-      user.value = resp.data
-      localStorage.setItem('user', JSON.stringify(resp.data))
-    } catch {
-      // token 可能已失效，清空
-      token.value = ''
-      localStorage.removeItem('token')
-      throw new Error('获取用户信息失败，token 可能无效')
-    }
-  }
-
-  return { token, user, isLoggedIn, login, loginWithToken, logout, fetchProfile }
+  return { token, user, isLoggedIn, login, logout, clearAuth, fetchProfile }
 })

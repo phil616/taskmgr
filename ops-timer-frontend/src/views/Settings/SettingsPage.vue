@@ -60,7 +60,7 @@
           <v-card-text>
             <div v-if="!smtpEnabled" class="mb-4">
               <v-alert type="info" variant="tonal" density="compact">
-                邮件通知未启用。请在服务器 <code>config.yaml</code> 中配置 <code>smtp</code> 节。
+                邮件通知未启用。请通过 <code>TASK_MANAGER_SMTP_*</code> 环境变量配置 SMTP。
               </v-alert>
             </div>
 
@@ -114,7 +114,7 @@
           <v-divider />
           <v-card-text>
             <p class="text-body-2 text-medium-emphasis mb-3">
-              API Token 可用于脚本和第三方集成调用计时器 API。请妥善保管。
+              API Token 可用于脚本和第三方集成调用任务管理器 API。请妥善保管。
             </p>
             <v-text-field
               :model-value="apiToken"

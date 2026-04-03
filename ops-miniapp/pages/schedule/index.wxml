@@ -1,0 +1,246 @@
+<view class="page">
+  <!-- 月份导航 -->
+  <view class="month-nav">
+    <view class="month-btn" bind:tap="prevMonth">
+      <t-icon name="chevron-left" size="44rpx" color="#3c3c43" />
+    </view>
+    <text class="month-label">{{currentMonthLabel}}</text>
+    <view class="month-btn" bind:tap="nextMonth">
+      <t-icon name="chevron-right" size="44rpx" color="#3c3c43" />
+    </view>
+    <view class="today-btn" bind:tap="goToday">
+      <text class="today-text">今天</text>
+    </view>
+    <view class="add-btn" bind:tap="openCreateDialog">
+      <t-icon name="add" size="40rpx" color="#fff" />
+    </view>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="loading-wrap">
+    <t-loading theme="dots" size="80rpx" />
+  </view>
+
+  <!-- 日程列表 -->
+  <scroll-view wx:elif="{{groupedSchedules.length > 0}}" scroll-y class="schedule-list">
+    <view wx:for="{{groupedSchedules}}" wx:key="date" class="date-group">
+      <!-- 日期分割线 -->
+      <view class="date-header">
+        <view class="date-dot"></view>
+        <text class="date-label">{{item.dateLabel}}</text>
+      </view>
+
+      <!-- 当天日程 -->
+      <view
+        wx:for="{{item.schedules}}"
+        wx:for-item="sched"
+        wx:key="id"
+        class="schedule-card"
+        bind:tap="openDetail"
+        data-schedule="{{sched}}"
+      >
+        <view class="sched-color-bar" style="background:{{sched.color || '#007aff'}}"></view>
+        <view class="sched-body">
+          <view class="sched-top">
+            <text class="sched-title">{{sched.title}}</text>
+            <view class="sched-status" style="background:{{sched.statusColor}}20;">
+              <text style="color:{{sched.statusColor}};font-size:20rpx;">{{sched.statusLabel}}</text>
+            </view>
+          </view>
+          <view class="sched-meta">
+            <t-icon name="time" size="24rpx" color="#8e8e93" />
+            <text class="sched-time">{{sched.timeText}}</text>
+            <view wx:if="{{sched.location}}" class="sched-location">
+              <t-icon name="location" size="24rpx" color="#8e8e93" />
+              <text class="sched-loc-text">{{sched.location}}</text>
+            </view>
+          </view>
+          <view wx:if="{{sched.tags && sched.tags.length}}" class="sched-tags">
+            <view wx:for="{{sched.tags}}" wx:key="*this" class="sched-tag">
+              <text class="sched-tag-text">{{item}}</text>
+            </view>
+          </view>
+        </view>
+        <t-icon name="chevron-right" size="32rpx" color="#c7c7cc" />
+      </view>
+    </view>
+    <view style="height: calc(120rpx + env(safe-area-inset-bottom));"></view>
+  </scroll-view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{!loading}}" class="empty-wrap">
+    <t-icon name="calendar" size="96rpx" color="#c7c7cc" />
+    <text class="empty-text">本月暂无日程</text>
+    <t-button size="small" theme="primary" variant="outline" bind:tap="openCreateDialog">新建日程</t-button>
+  </view>
+
+  <!-- 详情底部弹窗 -->
+  <t-popup visible="{{detailVisible}}" placement="bottom" bind:visible-change="closeDetail">
+    <view wx:if="{{selectedSchedule}}" class="dialog-sheet">
+      <view class="dialog-handle"></view>
+      <view class="detail-header">
+        <view class="detail-color-dot" style="background:{{selectedSchedule.color || '#007aff'}}"></view>
+        <text class="detail-title">{{selectedSchedule.title}}</text>
+        <view class="detail-actions">
+          <view bind:tap="openEditDialog">
+            <t-icon name="edit" size="44rpx" color="#007aff" />
+          </view>
+          <view bind:tap="deleteSchedule">
+            <t-icon name="delete" size="44rpx" color="#ff3b30" />
+          </view>
+          <view bind:tap="closeDetail">
+            <t-icon name="close" size="44rpx" color="#8e8e93" />
+          </view>
+        </view>
+      </view>
+      <view class="detail-body">
+        <view class="detail-row">
+          <t-icon name="time" size="32rpx" color="#8e8e93" />
+          <text class="detail-text">{{selectedSchedule.timeText}}</text>
+        </view>
+        <view wx:if="{{selectedSchedule.location}}" class="detail-row">
+          <t-icon name="location" size="32rpx" color="#8e8e93" />
+          <text class="detail-text">{{selectedSchedule.location}}</text>
+        </view>
+        <view class="detail-row">
+          <t-icon name="info-circle" size="32rpx" color="#8e8e93" />
+          <view class="detail-status" style="background:{{selectedSchedule.statusColor}}20;">
+            <text style="color:{{selectedSchedule.statusColor}};font-size:24rpx;">{{selectedSchedule.statusLabel}}</text>
+          </view>
+          <view wx:if="{{selectedSchedule.recurrenceLabel}}" class="detail-status" style="background:#7b1fa220;margin-left:12rpx;">
+            <text style="color:#7b1fa2;font-size:24rpx;">{{selectedSchedule.recurrenceLabel}}</text>
+          </view>
+        </view>
+        <view wx:if="{{selectedSchedule.description}}" class="detail-desc">
+          <text class="detail-desc-text">{{selectedSchedule.description}}</text>
+        </view>
+        <view wx:if="{{selectedSchedule.tags && selectedSchedule.tags.length}}" class="sched-tags">
+          <view wx:for="{{selectedSchedule.tags}}" wx:key="*this" class="sched-tag">
+            <text class="sched-tag-text">{{item}}</text>
+          </view>
+        </view>
+        <view wx:if="{{selectedSchedule.resources && selectedSchedule.resources.length}}" class="detail-resources">
+          <text class="detail-sec-title">关联资源 ({{selectedSchedule.resources.length}})</text>
+          <view wx:for="{{selectedSchedule.resources}}" wx:key="id" class="resource-item">
+            <text class="resource-title">{{item.resource_title || item.resource_id}}</text>
+            <view class="resource-type">
+              <text class="resource-type-text">{{item.resource_type === 'project' ? '项目' : item.resource_type === 'todo' ? '待办' : '计时单元'}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </t-popup>
+
+  <!-- 创建/编辑弹窗 -->
+  <t-popup visible="{{dialogVisible}}" placement="bottom" bind:visible-change="closeDialog">
+    <view class="dialog-sheet dialog-tall">
+      <view class="dialog-handle"></view>
+      <view class="dialog-header">
+        <text class="dialog-title">{{editingSchedule ? '编辑日程' : '新建日程'}}</text>
+        <view bind:tap="closeDialog">
+          <t-icon name="close" size="44rpx" color="#8e8e93" />
+        </view>
+      </view>
+      <scroll-view scroll-y class="dialog-scroll">
+        <view class="dialog-body">
+          <view class="field-wrap">
+            <text class="field-label">标题 *</text>
+            <t-input placeholder="请输入日程标题" value="{{scheduleForm.title}}" bind:change="onTitleInput" />
+          </view>
+
+          <view class="field-row">
+            <view class="field-wrap field-half">
+              <text class="field-label">开始时间</text>
+              <picker mode="date" value="{{scheduleForm.start_time.slice(0,10)}}" bind:change="onStartTimeChange">
+                <view class="picker-btn">
+                  <text>{{scheduleForm.start_time.slice(0,10) || '选择日期'}}</text>
+                  <t-icon name="calendar" size="28rpx" color="#8e8e93" />
+                </view>
+              </picker>
+            </view>
+            <view class="field-wrap field-half">
+              <text class="field-label">结束时间</text>
+              <picker mode="date" value="{{scheduleForm.end_time.slice(0,10)}}" bind:change="onEndTimeChange">
+                <view class="picker-btn">
+                  <text>{{scheduleForm.end_time.slice(0,10) || '选择日期'}}</text>
+                  <t-icon name="calendar" size="28rpx" color="#8e8e93" />
+                </view>
+              </picker>
+            </view>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">地点</text>
+            <t-input placeholder="会议室 / 地点（可选）" value="{{scheduleForm.location}}" bind:change="onLocationInput" />
+          </view>
+
+          <view class="field-row">
+            <view class="field-wrap field-half">
+              <text class="field-label">状态</text>
+              <picker mode="selector" range="{{statusOptions}}" range-key="label" bind:change="onStatusChange">
+                <view class="picker-btn">
+                  <text>{{scheduleForm.status === 'planned' ? '计划中' : scheduleForm.status === 'in_progress' ? '进行中' : scheduleForm.status === 'completed' ? '已完成' : '已取消'}}</text>
+                  <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+                </view>
+              </picker>
+            </view>
+            <view class="field-wrap field-half">
+              <text class="field-label">重复</text>
+              <picker mode="selector" range="{{recurrenceOptions}}" range-key="label" bind:change="onRecurrenceChange">
+                <view class="picker-btn">
+                  <text>{{scheduleForm.recurrence_type === 'none' ? '不重复' : scheduleForm.recurrence_type === 'daily' ? '每天' : scheduleForm.recurrence_type === 'weekly' ? '每周' : scheduleForm.recurrence_type === 'monthly' ? '每月' : '每年'}}</text>
+                  <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+                </view>
+              </picker>
+            </view>
+          </view>
+
+          <!-- 颜色选择 -->
+          <view class="field-wrap">
+            <text class="field-label">颜色</text>
+            <view class="color-row">
+              <view
+                wx:for="{{colorOptions}}"
+                wx:key="*this"
+                class="color-dot {{scheduleForm.color === item ? 'color-dot--active' : ''}}"
+                style="background:{{item}}"
+                bind:tap="onColorSelect"
+                data-color="{{item}}"
+              ></view>
+            </view>
+          </view>
+
+          <!-- 标签 -->
+          <view class="field-wrap">
+            <text class="field-label">标签</text>
+            <view class="tag-input-row">
+              <t-input placeholder="输入标签后按添加" value="{{tagInput}}" bind:change="onTagInput" />
+              <t-button size="small" theme="primary" variant="outline" bind:tap="addTag">添加</t-button>
+            </view>
+            <view wx:if="{{scheduleForm.tags.length}}" class="sched-tags" style="margin-top:12rpx;">
+              <view wx:for="{{scheduleForm.tags}}" wx:key="*this" class="sched-tag sched-tag--removable">
+                <text class="sched-tag-text">{{item}}</text>
+                <view bind:tap="removeTag" data-idx="{{index}}">
+                  <t-icon name="close" size="20rpx" color="#8e8e93" />
+                </view>
+              </view>
+            </view>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">描述</text>
+            <t-textarea placeholder="详细描述（可选）" value="{{scheduleForm.description}}" bind:change="onDescInput" maxlength="1000" />
+          </view>
+
+          <view class="btn-row">
+            <t-button wx:if="{{editingSchedule}}" theme="danger" variant="outline" bind:tap="deleteSchedule">删除</t-button>
+            <t-button theme="primary" block="{{!editingSchedule}}" loading="{{saving}}" bind:tap="saveSchedule">
+              {{editingSchedule ? '更新' : '创建'}}
+            </t-button>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

@@ -11,12 +11,6 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
-      path: '/oauth/callback',
-      name: 'oauth-callback',
-      component: () => import('@/views/OAuthCallback.vue'),
-      meta: { requiresAuth: false },
-    },
-    {
       path: '/',
       component: () => import('@/views/Layout.vue'),
       meta: { requiresAuth: true },
@@ -56,6 +50,16 @@ const router = createRouter({
           component: () => import('@/views/Todos/TodoList.vue'),
         },
         {
+          path: 'schedule',
+          name: 'schedule',
+          component: () => import('@/views/Schedule/ScheduleCalendar.vue'),
+        },
+        {
+          path: 'budget',
+          name: 'budget',
+          component: () => import('@/views/Budget/BudgetPage.vue'),
+        },
+        {
           path: 'notifications',
           name: 'notifications',
           component: () => import('@/views/Notifications.vue'),
@@ -72,11 +76,17 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const auth = useAuthStore()
-  if (to.meta.requiresAuth !== false && !auth.isLoggedIn) {
-    return '/login'
+
+  // 用 matched 检查整条路由链，只要链中有任意一条显式标记 requiresAuth: false，就视为公开路由
+  const isPublicRoute = to.matched.some(record => record.meta.requiresAuth === false)
+
+  if (!isPublicRoute && !auth.isLoggedIn) {
+    // 保存目标路径，登录后可跳回
+    return { path: '/login', query: { redirect: to.fullPath } }
   }
-  if (to.path === '/login' && auth.isLoggedIn) {
-    return '/dashboard'
+
+  if (to.name === 'login' && auth.isLoggedIn) {
+    return { name: 'dashboard' }
   }
 })
 

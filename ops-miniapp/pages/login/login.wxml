@@ -1,0 +1,72 @@
+<view class="login-page">
+  <!-- Logo 区域 -->
+  <view class="login-header">
+    <view class="login-icon-wrap">
+      <t-icon name="time" size="72rpx" color="#007aff" />
+    </view>
+    <text class="login-title">个人任务管理器</text>
+    <text class="login-subtitle">运维任务管理系统</text>
+  </view>
+
+  <!-- 登录表单 -->
+  <view class="login-card">
+    <view class="form-item">
+      <t-input
+        label="用户名"
+        placeholder="请输入用户名"
+        value="{{username}}"
+        bind:change="onUsernameInput"
+        prefix-icon="user"
+        clearable
+      />
+    </view>
+    <view class="form-item">
+      <t-input
+        label="密码"
+        placeholder="请输入密码"
+        value="{{password}}"
+        type="{{showPassword ? 'text' : 'password'}}"
+        bind:change="onPasswordInput"
+        prefix-icon="lock-on"
+        suffix-icon="{{showPassword ? 'browse-off' : 'browse'}}"
+        bind:suffix-click="togglePassword"
+      />
+    </view>
+
+    <view wx:if="{{errorMsg}}" class="error-msg">
+      <t-icon name="close-circle" size="32rpx" color="#ff3b30" />
+      <text class="error-text">{{errorMsg}}</text>
+    </view>
+
+    <t-button
+      theme="primary"
+      block
+      size="large"
+      loading="{{loading}}"
+      bind:tap="handleLogin"
+      class="login-btn"
+    >
+      {{loading ? '登录中...' : '登录'}}
+    </t-button>
+
+    <!-- 服务器设置入口 -->
+    <view class="server-setting-trigger" bind:tap="toggleServerSetting">
+      <t-icon name="setting" size="28rpx" color="#8e8e93" />
+      <text class="server-text">服务器设置</text>
+    </view>
+  </view>
+
+  <!-- 服务器地址设置面板 -->
+  <view wx:if="{{showServerSetting}}" class="server-panel">
+    <view class="server-panel-title">服务器地址</view>
+    <t-input
+      placeholder="http://localhost:8080"
+      value="{{serverUrl}}"
+      bind:change="onServerUrlInput"
+    />
+    <t-button theme="primary" size="small" bind:tap="saveServerUrl" style="margin-top:20rpx;">
+      保存
+    </t-button>
+    <text class="server-hint">修改后将使用新地址请求 API（需确保已加入微信域名白名单）</text>
+  </view>
+</view>

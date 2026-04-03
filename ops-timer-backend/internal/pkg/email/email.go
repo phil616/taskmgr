@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"html/template"
+	"mime"
 	"net"
 	"net/smtp"
 	"regexp"
@@ -54,14 +55,14 @@ func (s *Service) SendNotification(to, unitTitle, unitType, message, level strin
 	if err != nil {
 		return fmt.Errorf("render email: %w", err)
 	}
-	subject := fmt.Sprintf("【计时器 · %s】%s", data.LevelLabel, unitTitle)
+	subject := fmt.Sprintf("【任务管理器 · %s】%s", data.LevelLabel, unitTitle)
 	return s.send(to, subject, html)
 }
 
 // SendTest 发送测试邮件
 func (s *Service) SendTest(to string) error {
 	html := renderTest(to)
-	return s.send(to, "【计时器】邮件通知测试", html)
+	return s.send(to, "【任务管理器】邮件通知测试", html)
 }
 
 // ---------- internal ----------
@@ -155,12 +156,18 @@ func buildMIME(from, to, subject, htmlBody string) []byte {
 	var buf strings.Builder
 	buf.WriteString("MIME-Version: 1.0\r\n")
 	buf.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
-	buf.WriteString(fmt.Sprintf("From: %s\r\n", from))
-	buf.WriteString(fmt.Sprintf("To: %s\r\n", to))
-	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", subject))
+	// RFC 2047：对包含非 ASCII 字符的头字段进行 Q 编码，同时防止 CRLF 注入
+	buf.WriteString(fmt.Sprintf("From: %s\r\n", sanitizeHeaderValue(from)))
+	buf.WriteString(fmt.Sprintf("To: %s\r\n", sanitizeHeaderValue(to)))
+	buf.WriteString(fmt.Sprintf("Subject: %s\r\n", mime.QEncoding.Encode("UTF-8", sanitizeHeaderValue(subject))))
 	buf.WriteString("\r\n")
 	buf.WriteString(htmlBody)
 	return []byte(buf.String())
+}
+
+// sanitizeHeaderValue 清除邮件头中的 CR/LF 字符，防止 SMTP 头注入攻击
+func sanitizeHeaderValue(s string) string {
+	return strings.NewReplacer("\r", "", "\n", "", "\t", " ").Replace(strings.TrimSpace(s))
 }
 
 // ---------- HTML templates ----------
@@ -170,7 +177,7 @@ const notificationTmpl = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>计时器 通知</title>
+<title>任务管理器 通知</title>
 </head>
 <body style="margin:0;padding:0;background:#F0F2F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -184,7 +191,7 @@ const notificationTmpl = `<!DOCTYPE html>
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td style="padding:28px 32px 24px">
-                <div style="color:rgba(255,255,255,0.75);font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;margin-bottom:6px">Timer</div>
+                <div style="color:rgba(255,255,255,0.75);font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:600;margin-bottom:6px">Task Manager</div>
                 <div style="color:#FFFFFF;font-size:26px;font-weight:700;line-height:1.2">{{.LevelEmoji}}&nbsp;{{.LevelLabel}}</div>
               </td>
               <td align="right" style="padding:28px 32px 24px;vertical-align:top">
@@ -228,8 +235,8 @@ const notificationTmpl = `<!DOCTYPE html>
         <td style="background:#F8F9FA;border-top:1px solid #EEEEEE;padding:20px 32px">
           <table width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
-              <td style="color:#BBBBBB;font-size:12px">此邮件由 <strong style="color:#999">计时器</strong> 自动发送，请勿直接回复</td>
-              <td align="right" style="color:#CCCCCC;font-size:12px">运维计时管理平台</td>
+              <td style="color:#BBBBBB;font-size:12px">此邮件由 <strong style="color:#999">任务管理器</strong> 自动发送，请勿直接回复</td>
+              <td align="right" style="color:#CCCCCC;font-size:12px">运维任务管理平台</td>
             </tr>
           </table>
         </td>
@@ -245,7 +252,7 @@ const testTmpl = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>计时器 邮件测试</title>
+<title>任务管理器 邮件测试</title>
 </head>
 <body style="margin:0;padding:0;background:#F0F2F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0">
@@ -253,7 +260,7 @@ const testTmpl = `<!DOCTYPE html>
     <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#FFF;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.10)">
       <tr>
         <td style="background:linear-gradient(135deg,#1565C0,#42A5F5);padding:32px;text-align:center">
-          <div style="color:rgba(255,255,255,0.8);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Timer</div>
+          <div style="color:rgba(255,255,255,0.8);font-size:12px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px">Task Manager</div>
           <div style="color:#FFF;font-size:28px;font-weight:700">✅ 邮件测试成功</div>
         </td>
       </tr>
@@ -262,7 +269,7 @@ const testTmpl = `<!DOCTYPE html>
           <div style="width:72px;height:72px;background:#E8F5E9;border-radius:50%;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:36px;line-height:72px">📬</div>
           <div style="font-size:17px;font-weight:600;color:#1A1A2E;margin-bottom:10px">SMTP 配置工作正常</div>
           <div style="font-size:14px;color:#666;line-height:1.7">
-            您已成功配置计时器的邮件通知功能。<br>
+            您已成功配置任务管理器的邮件通知功能。<br>
             系统将在计时单元触发通知条件时自动向您发送邮件。
           </div>
           <div style="margin-top:24px;background:#F5F5F5;border-radius:8px;padding:12px 20px;display:inline-block;font-size:13px;color:#888">
@@ -272,7 +279,7 @@ const testTmpl = `<!DOCTYPE html>
       </tr>
       <tr>
         <td style="background:#F8F9FA;border-top:1px solid #EEE;padding:18px 32px;text-align:center">
-          <div style="color:#BBB;font-size:12px">此邮件由计时器自动发送 · 请勿直接回复</div>
+          <div style="color:#BBB;font-size:12px">此邮件由任务管理器自动发送 · 请勿直接回复</div>
         </td>
       </tr>
     </table>

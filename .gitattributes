@@ -1,10 +1,8 @@
 # =============================================================================
 # Git Attributes
 # =============================================================================
-
 # Auto-detect text files and normalize line endings to LF on commit
 * text=auto eol=lf
-
 # Explicitly declare text files that should always be LF
 *.go    text eol=lf
 *.ts    text eol=lf
@@ -29,19 +27,17 @@
 *.sql   text eol=lf
 Dockerfile* text eol=lf
 Makefile    text eol=lf
-
 # Windows batch scripts keep CRLF
 *.bat   text eol=crlf
 *.cmd   text eol=crlf
 *.ps1   text eol=crlf
-
 # Binary files — do not modify
-*.png   binary
-*.jpg   binary
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
 *.jpeg  binary
 *.gif   binary
 *.ico   binary
-*.svg   binary
+*.svg filter=lfs diff=lfs merge=lfs -text
 *.webp  binary
 *.woff  binary
 *.woff2 binary
@@ -51,15 +47,15 @@ Makefile    text eol=lf
 *.zip   binary
 *.tar   binary
 *.gz    binary
-
 # =============================================================================
 # GitHub Linguist — language statistics
 # =============================================================================
 # Exclude lockfiles from language stats
 package-lock.json  linguist-generated=true
 go.sum             linguist-generated=true
-
 # Mark vendor / generated code
 vendor/            linguist-vendored=true
 dist/              linguist-generated=true
 node_modules/      linguist-vendored=true
+*.pdf filter=lfs diff=lfs merge=lfs -text
+*.docx filter=lfs diff=lfs merge=lfs -text

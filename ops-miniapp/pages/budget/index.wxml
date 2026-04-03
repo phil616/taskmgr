@@ -1,0 +1,158 @@
+<view class="page">
+  <!-- 顶部操作栏 -->
+  <view class="top-bar">
+    <text class="page-title">预算管理</text>
+    <view class="top-actions">
+      <view class="action-icon" bind:tap="goCategories">
+        <t-icon name="tag" size="44rpx" color="#007aff" />
+      </view>
+      <view class="add-btn" bind:tap="openCreateWallet">
+        <t-icon name="add" size="40rpx" color="#fff" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 本月总览 -->
+  <view class="overview-row">
+    <view class="overview-card overview-income">
+      <text class="overview-label">本月收入</text>
+      <text class="overview-value text-income">+¥{{overviewIncome}}</text>
+    </view>
+    <view class="overview-card overview-expense">
+      <text class="overview-label">本月支出</text>
+      <text class="overview-value text-expense">-¥{{overviewExpense}}</text>
+    </view>
+    <view class="overview-card overview-net">
+      <text class="overview-label">本月结余</text>
+      <text class="overview-value {{overviewNetPositive ? 'text-income' : 'text-expense'}}">¥{{overviewNet}}</text>
+    </view>
+  </view>
+
+  <!-- 钱包列表 -->
+  <view wx:if="{{loading}}" class="loading-wrap">
+    <t-loading theme="dots" size="80rpx" />
+  </view>
+  <view wx:elif="{{wallets.length === 0}}" class="empty-wrap">
+    <t-icon name="wallet" size="96rpx" color="#c7c7cc" />
+    <text class="empty-text">还没有钱包，点击右上角新增</text>
+  </view>
+  <view wx:else class="wallets-list">
+    <view
+      wx:for="{{wallets}}"
+      wx:key="id"
+      class="wallet-card"
+      bind:tap="openWallet"
+      data-wallet="{{item}}"
+    >
+      <view class="wallet-header" style="background:{{item.color || '#007aff'}}">
+        <view class="wallet-header-top">
+          <view class="wallet-type-wrap">
+            <t-icon name="{{item.typeIcon}}" size="44rpx" color="rgba(255,255,255,0.9)" />
+            <view class="wallet-name-wrap">
+              <text class="wallet-name">{{item.name}}</text>
+              <text class="wallet-type">{{item.typeLabel}}</text>
+            </view>
+          </view>
+          <view class="wallet-right-top">
+            <view wx:if="{{item.is_default}}" class="default-badge">默认</view>
+            <view class="edit-btn" catchtap="openEditWallet" data-wallet="{{item}}">
+              <t-icon name="edit" size="36rpx" color="rgba(255,255,255,0.8)" />
+            </view>
+          </view>
+        </view>
+        <text class="wallet-balance">{{item.currency}} {{item.balanceText}}</text>
+      </view>
+      <view class="wallet-stats">
+        <view class="stat-item">
+          <text class="stat-label">本月收入</text>
+          <text class="stat-val text-income">+{{item.incomeText}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-label">本月支出</text>
+          <text class="stat-val text-expense">-{{item.expenseText}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-label">查看明细</text>
+          <t-icon name="chevron-right" size="28rpx" color="#007aff" />
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view style="height: calc(120rpx + env(safe-area-inset-bottom));"></view>
+
+  <!-- 新建/编辑钱包弹窗 -->
+  <t-popup visible="{{walletDialogVisible}}" placement="bottom" bind:visible-change="closeWalletDialog">
+    <view class="dialog-sheet">
+      <view class="dialog-handle"></view>
+      <view class="dialog-header">
+        <text class="dialog-title">{{editingWallet ? '编辑钱包' : '新增钱包'}}</text>
+        <view bind:tap="closeWalletDialog">
+          <t-icon name="close" size="44rpx" color="#8e8e93" />
+        </view>
+      </view>
+      <scroll-view scroll-y class="dialog-scroll">
+        <view class="dialog-body">
+          <view class="field-wrap">
+            <text class="field-label">钱包名称 *</text>
+            <t-input placeholder="如：工资卡、零钱包" value="{{walletForm.name}}" bind:change="onWalletNameInput" />
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">账户类型</text>
+            <picker mode="selector" range="{{typeOptions}}" range-key="label" bind:change="onWalletTypeChange">
+              <view class="picker-btn">
+                <text>{{walletForm.typeLabel}}</text>
+                <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
+          <view class="field-wrap" wx:if="{{!editingWallet}}">
+            <text class="field-label">初始余额</text>
+            <t-input
+              placeholder="0.00"
+              type="digit"
+              value="{{walletForm.balance}}"
+              bind:change="onWalletBalanceInput"
+              prefix-icon="money-circle"
+            />
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">备注</text>
+            <t-input placeholder="可选说明" value="{{walletForm.description}}" bind:change="onWalletDescInput" />
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">颜色</text>
+            <view class="color-row">
+              <view
+                wx:for="{{colorOptions}}"
+                wx:key="*this"
+                class="color-dot {{walletForm.color === item ? 'color-dot--active' : ''}}"
+                style="background:{{item}}"
+                bind:tap="onWalletColorSelect"
+                data-color="{{item}}"
+              ></view>
+            </view>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">设为默认钱包</text>
+            <t-switch value="{{walletForm.is_default}}" bind:change="onDefaultChange" />
+          </view>
+
+          <view class="btn-row">
+            <t-button wx:if="{{editingWallet}}" theme="danger" variant="outline" bind:tap="deleteWallet">删除</t-button>
+            <t-button theme="primary" block="{{!editingWallet}}" loading="{{saving}}" bind:tap="saveWallet">
+              {{editingWallet ? '更新' : '创建'}}
+            </t-button>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

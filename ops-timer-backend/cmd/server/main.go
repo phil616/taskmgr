@@ -13,31 +13,37 @@ import (
 	"ops-timer-backend/internal/model"
 	"ops-timer-backend/internal/pkg/auth"
 	"ops-timer-backend/internal/pkg/email"
-	pkgoauth "ops-timer-backend/internal/pkg/oauth"
 	"ops-timer-backend/internal/pkg/scheduler"
 	"ops-timer-backend/internal/repository"
 	"ops-timer-backend/internal/service"
 
-	"go.uber.org/zap"
 	"github.com/glebarez/sqlite"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 func main() {
-	configPath := flag.String("config", "config.yaml", "配置文件路径；若文件不存在则仅从环境变量 TIMER_* 读取")
 	initAdmin := flag.Bool("init-admin", false, "初始化/重置管理员账户")
 	adminUser := flag.String("admin-user", "admin", "管理员用户名")
-	adminPass := flag.String("admin-pass", "admin123", "管理员密码")
+	adminPassEnv := os.Getenv("TASK_MANAGER_INIT_ADMIN_PASSWORD")
+	adminPass := flag.String("admin-pass", adminPassEnv, "初始管理员密码（建议通过 TASK_MANAGER_INIT_ADMIN_PASSWORD 环境变量传入）")
 	flag.Parse()
 
-	cfg, err := config.Load(*configPath)
+	if *adminPass == "" {
+		*adminPass = "Admin@12345"
+	}
+
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
 
 	zapLogger := initLogger(cfg.Log)
 	defer zapLogger.Sync()
+
+	// 安全检查：JWT Secret 必须足够复杂
+	validateJWTSecret(cfg.Auth.JWTSecret, zapLogger)
 
 	db := initDatabase(cfg.Database)
 
@@ -51,6 +57,10 @@ func main() {
 	todoRepo := repository.NewTodoRepository(db)
 	todoGroupRepo := repository.NewTodoGroupRepository(db)
 	notifRepo := repository.NewNotificationRepository(db)
+	scheduleRepo := repository.NewScheduleRepository(db)
+	walletRepo := repository.NewWalletRepository(db)
+	categoryRepo := repository.NewBudgetCategoryRepository(db)
+	txRepo := repository.NewTransactionRepository(db)
 
 	// Auth
 	jwtManager := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.JWTExpiryHours)
@@ -63,29 +73,21 @@ func main() {
 		zapLogger.Info("SMTP 邮件通知未配置，跳过邮件功能")
 	}
 
-	// OAuth / OIDC
-	var oauthSvc *pkgoauth.Service
-	if cfg.OAuth.IsConfigured() {
-		var oauthErr error
-		oauthSvc, oauthErr = pkgoauth.NewService(&cfg.OAuth)
-		if oauthErr != nil {
-			zapLogger.Warn("OAuth 初始化失败，OAuth 登录不可用", zap.Error(oauthErr))
-		} else {
-			zapLogger.Info("OAuth OIDC 已启用", zap.String("issuer", cfg.OAuth.IssuerURL))
-		}
-	} else {
-		zapLogger.Info("OAuth 未配置，跳过 OAuth 登录功能")
-	}
-
 	// Services
 	authService := service.NewAuthService(userRepo, jwtManager, &cfg.Auth)
 	unitService := service.NewUnitService(unitRepo, unitLogRepo)
 	projectService := service.NewProjectService(projectRepo, unitRepo)
 	todoService := service.NewTodoService(todoRepo, todoGroupRepo)
 	notifService := service.NewNotificationService(notifRepo)
+	scheduleService := service.NewScheduleService(scheduleRepo, projectRepo, unitRepo, todoRepo)
+	budgetService := service.NewBudgetService(walletRepo, categoryRepo, txRepo)
 
 	if err := authService.EnsureAdminExists(*adminUser, *adminPass); err != nil {
 		zapLogger.Fatal("创建管理员账户失败", zap.Error(err))
+	}
+
+	if err := budgetService.InitDefaultCategories(); err != nil {
+		zapLogger.Warn("初始化默认预算分类失败", zap.Error(err))
 	}
 
 	if *initAdmin {
@@ -95,24 +97,43 @@ func main() {
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, emailSvc)
-	oauthHandler := handler.NewOAuthHandler(oauthSvc, authService)
 	unitHandler := handler.NewUnitHandler(unitService)
 	projectHandler := handler.NewProjectHandler(projectService, unitService)
 	todoHandler := handler.NewTodoHandler(todoService)
 	notifHandler := handler.NewNotificationHandler(notifService)
+	scheduleHandler := handler.NewScheduleHandler(scheduleService)
+	budgetHandler := handler.NewBudgetHandler(budgetService)
+	var mcpHandler *handler.MCPHandler
+	if cfg.MCP.Enabled {
+		mcpHandler = handler.NewMCPHandler(handler.MCPHandlerConfig{
+			AuthService:    authService,
+			BaseURL:        fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port),
+			ExternalURL:    cfg.MCP.ExternalURL,
+			MCPPath:        cfg.MCP.Path,
+			ServerName:     cfg.MCP.ServerName,
+			ServerVersion:  cfg.MCP.ServerVersion,
+			TimeoutSeconds: cfg.MCP.TimeoutSeconds,
+		})
+		zapLogger.Info("MCP 服务已启用", zap.String("path", cfg.MCP.Path))
+	} else {
+		zapLogger.Info("MCP 服务未启用")
+	}
 
 	// Router
 	r := router.NewRouter(&router.RouterConfig{
-		AuthHandler:    authHandler,
-		OAuthHandler:   oauthHandler,
-		UnitHandler:    unitHandler,
-		ProjectHandler: projectHandler,
-		TodoHandler:    todoHandler,
-		NotifHandler:   notifHandler,
-		JWTManager:     jwtManager,
-		AuthService:    authService,
-		Logger:         zapLogger,
-		CorsOrigins:    cfg.Server.CorsOrigins,
+		AuthHandler:     authHandler,
+		UnitHandler:     unitHandler,
+		ProjectHandler:  projectHandler,
+		TodoHandler:     todoHandler,
+		NotifHandler:    notifHandler,
+		ScheduleHandler: scheduleHandler,
+		BudgetHandler:   budgetHandler,
+		MCPHandler:      mcpHandler,
+		JWTManager:      jwtManager,
+		AuthService:     authService,
+		Logger:          zapLogger,
+		CorsOrigins:     cfg.Server.CorsOrigins,
+		MCPPath:         cfg.MCP.Path,
 	})
 
 	engine := r.Setup()
@@ -125,7 +146,7 @@ func main() {
 	defer sched.Stop()
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	zapLogger.Info("计时器服务已启动", zap.String("addr", addr))
+	zapLogger.Info("任务管理器服务已启动", zap.String("addr", addr))
 
 	if err := engine.Run(addr); err != nil {
 		zapLogger.Fatal("服务启动失败", zap.Error(err))
@@ -182,8 +203,39 @@ func autoMigrate(db *gorm.DB) {
 		&model.TodoGroup{},
 		&model.Todo{},
 		&model.Notification{},
+		&model.Schedule{},
+		&model.ScheduleResource{},
+		&model.Wallet{},
+		&model.BudgetCategory{},
+		&model.Transaction{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
+	}
+}
+
+// knownWeakSecrets 是常见弱密钥列表，启动时检测防止误用
+var knownWeakSecrets = []string{
+	"CHANGE_ME_TO_A_RANDOM_SECRET",
+	"change_me_to_a_random_secret_in_production",
+	"secret",
+	"your_jwt_secret",
+	"jwt_secret",
+}
+
+// validateJWTSecret 检查 JWT Secret 强度，不符合要求时 Fatal 退出
+func validateJWTSecret(secret string, logger *zap.Logger) {
+	if secret == "" {
+		logger.Fatal("JWT Secret 未配置，请通过 TASK_MANAGER_AUTH_JWT_SECRET 环境变量或 .env 文件设置")
+	}
+	if len(secret) < 32 {
+		logger.Fatal("JWT Secret 长度不足（当前不足 32 位），请生成强随机字符串",
+			zap.Int("current_len", len(secret)))
+	}
+	for _, weak := range knownWeakSecrets {
+		if secret == weak {
+			logger.Fatal("检测到已知弱 JWT Secret，请立即替换为强随机字符串（可用: openssl rand -hex 32）",
+				zap.String("hint", "TASK_MANAGER_AUTH_JWT_SECRET=<your-random-secret>"))
+		}
 	}
 }

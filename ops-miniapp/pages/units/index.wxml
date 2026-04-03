@@ -1,0 +1,133 @@
+<view class="page">
+  <!-- 顶部栏 -->
+  <view class="top-bar">
+    <picker mode="selector" range="{{statusOptions}}" range-key="label" bind:change="onStatusFilter">
+      <view class="filter-btn">
+        <text class="filter-text">{{statusFilterLabel}}</text>
+        <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+      </view>
+    </picker>
+    <view class="add-btn" bind:tap="openCreate">
+      <t-icon name="add" size="40rpx" color="#fff" />
+    </view>
+  </view>
+
+  <!-- 列表 -->
+  <view wx:if="{{loading}}" class="loading-wrap">
+    <t-loading theme="dots" size="80rpx" />
+  </view>
+  <view wx:elif="{{units.length === 0}}" class="empty-wrap">
+    <t-icon name="time" size="96rpx" color="#c7c7cc" />
+    <text class="empty-text">暂无计时单元</text>
+    <t-button size="small" theme="primary" variant="outline" bind:tap="openCreate">新建单元</t-button>
+  </view>
+  <scroll-view wx:else scroll-y class="units-list">
+    <view
+      wx:for="{{units}}"
+      wx:key="id"
+      class="unit-card {{item.alertColor ? 'unit-card--alert' : ''}}"
+    >
+      <view class="unit-left" bind:tap="goDetail" data-id="{{item.id}}">
+        <view class="unit-priority-bar" style="background:{{item.priorityColor}}"></view>
+        <view class="unit-body">
+          <view class="unit-top">
+            <text class="unit-title">{{item.title}}</text>
+            <view class="unit-type-tag">
+              <text class="unit-type-text">{{item.typeLabel}}</text>
+            </view>
+          </view>
+          <text class="unit-progress {{item.alertColor ? 'text-alert' : ''}}" style="color:{{item.alertColor || '#8e8e93'}}">
+            {{item.progressText}}
+          </text>
+        </view>
+      </view>
+      <view class="unit-right">
+        <view class="unit-status-btn" bind:tap="toggleStatus" data-id="{{item.id}}" data-status="{{item.status}}">
+          <t-icon name="{{item.status === 'active' ? 'pause-circle' : 'play-circle'}}" size="44rpx" color="{{item.status === 'active' ? '#ff9500' : '#34c759'}}" />
+        </view>
+        <view class="unit-edit-btn" bind:tap="openEdit" data-unit="{{item}}">
+          <t-icon name="edit" size="36rpx" color="#8e8e93" />
+        </view>
+      </view>
+    </view>
+    <view style="height:60rpx;"></view>
+  </scroll-view>
+
+  <!-- 新建/编辑弹窗 -->
+  <t-popup visible="{{dialogVisible}}" placement="bottom" bind:visible-change="closeDialog">
+    <view class="dialog-sheet">
+      <view class="dialog-handle"></view>
+      <view class="dialog-header">
+        <text class="dialog-title">{{editingUnit ? '编辑单元' : '新建单元'}}</text>
+        <view bind:tap="closeDialog">
+          <t-icon name="close" size="44rpx" color="#8e8e93" />
+        </view>
+      </view>
+      <scroll-view scroll-y class="dialog-scroll">
+        <view class="dialog-body">
+          <view class="field-wrap">
+            <text class="field-label">标题 *</text>
+            <t-input placeholder="请输入单元标题" value="{{unitForm.title}}" bind:change="onTitleInput" />
+          </view>
+          <view class="field-wrap">
+            <text class="field-label">描述</text>
+            <t-textarea placeholder="可选描述" value="{{unitForm.description}}" bind:change="onDescInput" maxlength="500" />
+          </view>
+          <view class="field-row">
+            <view class="field-wrap field-half">
+              <text class="field-label">类型</text>
+              <picker mode="selector" range="{{typeOptions}}" range-key="label" bind:change="onTypeChange">
+                <view class="picker-btn">
+                  <text>{{unitForm.type === 'time_countdown' ? '时间倒计时' : unitForm.type === 'time_countup' ? '时间正计时' : unitForm.type === 'count_countdown' ? '数量倒计' : '数量正计'}}</text>
+                  <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+                </view>
+              </picker>
+            </view>
+            <view class="field-wrap field-half">
+              <text class="field-label">优先级</text>
+              <picker mode="selector" range="{{priorityOptions}}" range-key="label" bind:change="onPriorityChange">
+                <view class="picker-btn">
+                  <text>{{unitForm.priority === 'low' ? '低' : unitForm.priority === 'normal' ? '普通' : unitForm.priority === 'high' ? '高' : '紧急'}}</text>
+                  <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+                </view>
+              </picker>
+            </view>
+          </view>
+
+          <!-- 时间倒计时：目标时间 -->
+          <view class="field-wrap" wx:if="{{unitForm.type === 'time_countdown'}}">
+            <text class="field-label">目标日期</text>
+            <picker mode="date" value="{{unitForm.target_time}}" bind:change="onTargetTimeChange">
+              <view class="picker-btn">
+                <text>{{unitForm.target_time || '选择日期'}}</text>
+                <t-icon name="calendar" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
+          <!-- 数量计：目标值/步长/单位 -->
+          <view wx:if="{{unitForm.type === 'count_countdown' || unitForm.type === 'count_countup'}}">
+            <view class="field-row">
+              <view class="field-wrap field-half">
+                <text class="field-label">目标值</text>
+                <t-input type="number" value="{{unitForm.target_value}}" bind:change="onTargetValueInput" />
+              </view>
+              <view class="field-wrap field-half">
+                <text class="field-label">步长</text>
+                <t-input type="number" value="{{unitForm.step}}" bind:change="onStepInput" />
+              </view>
+            </view>
+            <view class="field-wrap">
+              <text class="field-label">单位标签（如：个、次、页）</text>
+              <t-input placeholder="可选" value="{{unitForm.unit_label}}" bind:change="onUnitLabelInput" />
+            </view>
+          </view>
+
+          <t-button theme="primary" block size="large" loading="{{saving}}" bind:tap="saveUnit">
+            {{editingUnit ? '更新' : '创建'}}
+          </t-button>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

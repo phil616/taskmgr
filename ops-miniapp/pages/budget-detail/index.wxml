@@ -1,0 +1,167 @@
+<view class="page">
+  <!-- 钱包信息卡 -->
+  <view wx:if="{{wallet}}" class="wallet-info" style="background:{{wallet.color || '#007aff'}}">
+    <text class="wallet-balance">{{wallet.currency}} {{wallet.balanceText}}</text>
+    <text class="wallet-name">{{walletName}}</text>
+    <view class="wallet-stats">
+      <view class="ws-item">
+        <text class="ws-label">收入</text>
+        <text class="ws-val">+{{wallet.incomeText}}</text>
+      </view>
+      <view class="ws-divider"></view>
+      <view class="ws-item">
+        <text class="ws-label">支出</text>
+        <text class="ws-val">-{{wallet.expenseText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 过滤栏 + 新增按钮 -->
+  <view class="filter-bar">
+    <picker mode="selector" range="{{typeFilterOptions}}" range-key="label" bind:change="onTypeFilterChange">
+      <view class="filter-btn">
+        <text class="filter-text">{{typeFilterLabel}}</text>
+        <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+      </view>
+    </picker>
+    <view class="add-btn" bind:tap="openCreateTx">
+      <t-icon name="add" size="36rpx" color="#fff" />
+      <text class="add-text">记账</text>
+    </view>
+  </view>
+
+  <!-- 交易列表 -->
+  <view wx:if="{{loading && transactions.length === 0}}" class="loading-wrap">
+    <t-loading theme="dots" size="80rpx" />
+  </view>
+  <view wx:elif="{{transactions.length === 0}}" class="empty-wrap">
+    <t-icon name="money-circle" size="96rpx" color="#c7c7cc" />
+    <text class="empty-text">暂无交易记录</text>
+    <t-button size="small" theme="primary" variant="outline" bind:tap="openCreateTx">添加第一条记录</t-button>
+  </view>
+  <scroll-view wx:else scroll-y class="tx-list" bindscrolltolower="onReachBottom">
+    <view
+      wx:for="{{transactions}}"
+      wx:key="id"
+      class="tx-card"
+    >
+      <view class="tx-left">
+        <view class="tx-cat-icon" style="background:{{item.category_color || '#f2f2f7'}}">
+          <t-icon name="{{item.category_icon || 'money-circle'}}" size="36rpx" color="{{item.category_color ? '#fff' : '#8e8e93'}}" />
+        </view>
+        <view class="tx-info">
+          <text class="tx-category">{{item.category_name || '未分类'}}</text>
+          <text class="tx-date">{{item.dateText}}</text>
+          <text wx:if="{{item.note}}" class="tx-note">{{item.note}}</text>
+        </view>
+      </view>
+      <view class="tx-right">
+        <text class="tx-amount" style="color:{{item.typeColor}}">{{item.typeSign}}¥{{item.amountText}}</text>
+        <text class="tx-type-label" style="color:{{item.typeColor}}">{{item.typeLabel}}</text>
+      </view>
+      <view class="tx-actions">
+        <view bind:tap="openEditTx" data-tx="{{item}}">
+          <t-icon name="edit" size="32rpx" color="#8e8e93" />
+        </view>
+        <view bind:tap="deleteTx" data-id="{{item.id}}">
+          <t-icon name="delete" size="32rpx" color="#ff3b30" />
+        </view>
+      </view>
+    </view>
+    <view wx:if="{{loading}}" class="loading-bottom">
+      <t-loading size="40rpx" />
+    </view>
+    <view wx:elif="{{!hasMore}}" class="no-more">没有更多记录</view>
+    <view style="height: calc(120rpx + env(safe-area-inset-bottom));"></view>
+  </scroll-view>
+
+  <!-- 新建/编辑交易弹窗 -->
+  <t-popup visible="{{txDialogVisible}}" placement="bottom" bind:visible-change="closeTxDialog">
+    <view class="dialog-sheet">
+      <view class="dialog-handle"></view>
+      <view class="dialog-header">
+        <text class="dialog-title">{{editingTx ? '编辑记录' : '新增记录'}}</text>
+        <view bind:tap="closeTxDialog">
+          <t-icon name="close" size="44rpx" color="#8e8e93" />
+        </view>
+      </view>
+      <scroll-view scroll-y class="dialog-scroll">
+        <view class="dialog-body">
+          <!-- 类型选择 -->
+          <view class="field-wrap">
+            <text class="field-label">类型</text>
+            <view class="type-row">
+              <view class="type-tabs">
+                <view
+                  class="type-tab {{txForm.type === 'expense' ? 'type-tab--active type-tab--expense' : ''}}"
+                  bind:tap="onTxTypeChange"
+                  data-value="0"
+                >支出</view>
+                <view
+                  class="type-tab {{txForm.type === 'income' ? 'type-tab--active type-tab--income' : ''}}"
+                  bind:tap="onTxTypeChange"
+                  data-value="1"
+                >收入</view>
+                <view
+                  class="type-tab {{txForm.type === 'transfer' ? 'type-tab--active type-tab--transfer' : ''}}"
+                  bind:tap="onTxTypeChange"
+                  data-value="2"
+                >转账</view>
+              </view>
+            </view>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">金额 *</text>
+            <t-input
+              placeholder="0.00"
+              type="digit"
+              value="{{txForm.amount}}"
+              bind:change="onTxAmountInput"
+              prefix-icon="money-circle"
+            />
+          </view>
+
+          <view class="field-wrap" wx:if="{{txForm.type !== 'transfer'}}">
+            <text class="field-label">分类</text>
+            <picker mode="selector" range="{{categories}}" range-key="name" bind:change="onTxCategoryChange">
+              <view class="picker-btn">
+                <text>{{txForm.categoryName || '无分类'}}</text>
+                <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
+          <view class="field-wrap" wx:if="{{txForm.type === 'transfer' && wallets.length > 0}}">
+            <text class="field-label">转入钱包</text>
+            <picker mode="selector" range="{{wallets}}" range-key="name" bind:change="onTxToWalletChange">
+              <view class="picker-btn">
+                <text>{{txForm.toWalletName || '选择钱包'}}</text>
+                <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">日期</text>
+            <picker mode="date" value="{{txForm.transaction_at.slice(0,10)}}" bind:change="onTxDateChange">
+              <view class="picker-btn">
+                <text>{{txForm.transaction_at.slice(0,10) || '选择日期'}}</text>
+                <t-icon name="calendar" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">备注</text>
+            <t-input placeholder="可选备注" value="{{txForm.note}}" bind:change="onTxNoteInput" />
+          </view>
+
+          <t-button theme="primary" block size="large" loading="{{saving}}" bind:tap="saveTx">
+            {{editingTx ? '更新记录' : '保存记录'}}
+          </t-button>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

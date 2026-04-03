@@ -1,4 +1,4 @@
-# 运维计时管理系统 — 后端文档
+# 运维任务管理系统 — 后端文档
 
 本目录包含 **HTTP API** 的规范说明，供前端、脚本、第三方集成与自动化工具使用。
 
@@ -46,10 +46,53 @@
 - **响应格式**：JSON。成功时 `code` 为 `0`；失败时 HTTP 状态码与业务 `code` 见 OpenAPI 文档中的「错误码」说明。
 - **分页列表**：查询参数 `page`（默认 1）、`page_size`（默认 20）；响应体在 `meta` 中携带 `total`、`total_pages` 等。
 
+## MCP 约定（AI Agent）
+
+### 概览
+
+MCP 服务器 v2.0 提供 **55 个专用工具**，100% 覆盖后端所有 API，智能体通过一个 JSON 配置即可获得全部能力。
+
+### 端点
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/mcp` | MCP JSON-RPC 入口（`initialize`、`ping`、`tools/list`、`tools/call`、`notifications/initialized`） |
+| `GET` | `/mcp/config` | 返回可直接粘贴到 MCP 客户端的 JSON 配置片段 |
+
+### 认证
+
+- `X-API-Token: <api_token>`（推荐）
+- 或 `Authorization: Bearer <api_token>`
+
+### 工具清单（55 个）
+
+| 模块 | 工具 |
+|------|------|
+| **计时单元** | `unit_list` `unit_get` `unit_create` `unit_update` `unit_delete` `unit_update_status` `unit_step` `unit_set_value` `unit_logs` `unit_summary` |
+| **项目** | `project_list` `project_get` `project_create` `project_update` `project_delete` `project_units` |
+| **待办** | `todo_list` `todo_get` `todo_create` `todo_update` `todo_delete` `todo_update_status` `todo_batch` |
+| **待办分组** | `todo_group_list` `todo_group_create` `todo_group_update` `todo_group_delete` |
+| **通知** | `notification_list` `notification_mark_read` `notification_mark_all_read` `notification_unread_count` `notification_delete` |
+| **日程** | `schedule_list` `schedule_get` `schedule_create` `schedule_update` `schedule_delete` `schedule_add_resource` `schedule_remove_resource` |
+| **钱包** | `wallet_list` `wallet_get` `wallet_create` `wallet_update` `wallet_delete` |
+| **收支分类** | `budget_category_list` `budget_category_create` `budget_category_update` `budget_category_delete` |
+| **收支记录** | `transaction_list` `transaction_get` `transaction_create` `transaction_update` `transaction_delete` |
+| **预算统计** | `budget_stats` |
+| **通用** | `backend_request`（兜底，可代理调用 `/api/v1/*` 与 `/health`） |
+
+### 快速接入
+
+```bash
+# 1. 获取配置片段
+curl http://localhost:8080/mcp/config
+
+# 2. 将返回的 mcpServers 粘贴到客户端配置，替换 Token
+# 3. 智能体即可通过 55 个工具操控全部后端数据
+```
+
 ## 与配置的关系
 
-- 服务监听地址、CORS、JWT、数据库等见项目根目录 `README.md` 与 `config.yaml` / 环境变量前缀 `TIMER_`。
-- OAuth 相关接口仅在后台启用 OAuth 时可用；详见 OpenAPI 中 `/auth/oauth/*` 说明。
+- 服务监听地址、CORS、JWT、数据库等见项目根目录 `README.md` 与 `env.example` / 环境变量前缀 `TASK_MANAGER_`。
 
 ## 维护说明
 

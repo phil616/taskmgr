@@ -23,7 +23,3 @@ type NotificationQueryParams struct {
 type UnreadCountResponse struct {
 	Count int64 `json:"count"`
 }
-
-type BatchReadRequest struct {
-	IDs []string `json:"ids"`
-}
