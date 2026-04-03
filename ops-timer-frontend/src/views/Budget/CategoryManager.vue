@@ -116,7 +116,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { categoryApi } from '@/api/budget'
-import type { BudgetCategory } from '@/types'
+import type { BudgetCategory, CategoryType } from '@/types'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{
@@ -125,12 +125,12 @@ const emit = defineEmits<{
 
 const categories = ref<BudgetCategory[]>([])
 const loading = ref(false)
-const tab = ref('expense')
+const tab = ref<CategoryType>('expense')
 const editDialog = ref(false)
 const editingCat = ref<BudgetCategory | null>(null)
 const saving = ref(false)
 
-const catForm = ref({ name: '', type: 'expense' as string, color: '#757575', icon: 'mdi-tag' })
+const catForm = ref({ name: '', type: 'expense' as CategoryType, color: '#757575', icon: 'mdi-tag' })
 const colorOptions = [
   '#F4511E', '#E53935', '#8E24AA', '#FB8C00', '#F57C00',
   '#43A047', '#00ACC1', '#1E88E5', '#039BE5', '#757575',
@@ -171,7 +171,7 @@ async function saveCategory() {
     if (editingCat.value) {
       await categoryApi.update(editingCat.value.id, catForm.value)
     } else {
-      await categoryApi.create({ ...catForm.value, type: catForm.value.type as any })
+      await categoryApi.create(catForm.value)
     }
     editDialog.value = false
     await fetchCategories()
