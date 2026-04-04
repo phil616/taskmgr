@@ -1327,7 +1327,7 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 			req.Header.Set(k, toString(v))
 		}
 	}
-
+	// 安全忽略：直接使用请求不会导致问题，因为都是本地请求
 	resp, err := h.httpClient.Do(req)
 	if err != nil {
 		return toolError("调用后端失败: " + err.Error())
