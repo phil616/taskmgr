@@ -73,7 +73,7 @@ Page({
         overviewNet: formatAmount((d.total_income || 0) - (d.total_expense || 0)),
         overviewNetPositive: (d.total_income || 0) >= (d.total_expense || 0),
       });
-    } catch (err) {}
+    } catch (_) {}
   },
 
   openWallet(e) {

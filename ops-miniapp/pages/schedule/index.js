@@ -1,5 +1,5 @@
 const { get, post, put, del } = require('../../utils/request');
-const { formatDate, formatTime, formatMonthDay, getWeekday, isToday, addMonths } = require('../../utils/date');
+const { formatTime, getWeekday, isToday, addMonths } = require('../../utils/date');
 
 Page({
   data: {
@@ -191,7 +191,6 @@ Page({
   onLocationInput(e) { this.setData({ 'scheduleForm.location': e.detail.value }); },
   onStartTimeChange(e) { this.setData({ 'scheduleForm.start_time': e.detail.value }); },
   onEndTimeChange(e) { this.setData({ 'scheduleForm.end_time': e.detail.value }); },
-  onAllDayChange(e) { this.setData({ 'scheduleForm.all_day': e.detail.value }); },
   onColorSelect(e) { this.setData({ 'scheduleForm.color': e.currentTarget.dataset.color }); },
   onStatusChange(e) { this.setData({ 'scheduleForm.status': this.data.statusOptions[e.detail.value].value }); },
   onRecurrenceChange(e) { this.setData({ 'scheduleForm.recurrence_type': this.data.recurrenceOptions[e.detail.value].value }); },

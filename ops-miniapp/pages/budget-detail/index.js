@@ -1,5 +1,5 @@
 const { get, post, put, del } = require('../../utils/request');
-const { formatAmount, formatDate, formatDateTime } = require('../../utils/date');
+const { formatAmount, formatDateTime } = require('../../utils/date');
 
 Page({
   data: {
@@ -78,7 +78,7 @@ Page({
           },
         });
       }
-    } catch (err) {}
+    } catch (_) {}
   },
 
   async fetchTransactions(reset) {
@@ -118,7 +118,7 @@ Page({
     try {
       const resp = await get('/budget/categories');
       this.setData({ categories: resp.data || [] });
-    } catch (err) {}
+    } catch (_) {}
   },
 
   async fetchWallets() {
@@ -126,7 +126,7 @@ Page({
       const resp = await get('/wallets');
       const wallets = (resp.data || []).filter(w => w.id !== this.data.walletId);
       this.setData({ wallets });
-    } catch (err) {}
+    } catch (_) {}
   },
 
   onTypeFilterChange(e) {

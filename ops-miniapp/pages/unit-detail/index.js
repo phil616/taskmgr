@@ -1,5 +1,5 @@
 const { get, patch, del, post } = require('../../utils/request');
-const { formatDuration, formatDate, formatDateTime } = require('../../utils/date');
+const { formatDuration, formatDateTime } = require('../../utils/date');
 
 Page({
   data: { unit: null, logs: [], loading: true },
@@ -39,7 +39,7 @@ Page({
         deltaSign: l.delta > 0 ? '+' : '',
       }));
       this.setData({ logs });
-    } catch (err) {}
+    } catch (_) {}
   },
 
   formatUnit(u) {
@@ -106,5 +106,4 @@ Page({
     });
   },
 
-  goBack() { wx.navigateBack(); },
 });

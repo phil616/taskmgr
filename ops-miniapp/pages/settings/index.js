@@ -60,21 +60,21 @@ Page({
           },
         });
       }
-    } catch (err) {}
+    } catch (_) {}
   },
 
   async fetchToken() {
     try {
       const resp = await get('/auth/token');
       this.setData({ apiToken: resp.data?.api_token || '' });
-    } catch (err) {}
+    } catch (_) {}
   },
 
   async fetchSmtpStatus() {
     try {
       const resp = await get('/auth/smtp-status');
       this.setData({ smtpEnabled: resp.data?.enabled || false });
-    } catch (err) {}
+    } catch (_) {}
   },
 
   // ---- 个人信息 ----

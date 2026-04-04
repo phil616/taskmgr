@@ -98,7 +98,7 @@ Page({
     try {
       const resp = await get('/todo-groups');
       this.setData({ groups: resp.data || [] });
-    } catch (err) {}
+    } catch (_) {}
   },
 
   selectGroup(e) {

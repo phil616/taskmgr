@@ -57,7 +57,6 @@ Page({
   onNameInput(e) { this.setData({ 'catForm.name': e.detail.value }); },
   onTypeChange(e) { this.setData({ 'catForm.type': this.data.typeOptions[e.detail.value].value }); },
   onColorSelect(e) { this.setData({ 'catForm.color': e.currentTarget.dataset.color }); },
-  onIconInput(e) { this.setData({ 'catForm.icon': e.detail.value }); },
 
   async saveCat() {
     const { catForm, editingCat } = this.data;

@@ -1,4 +1,4 @@
-const { get, post, put, patch, del } = require('../../utils/request');
+const { get, post, put, patch } = require('../../utils/request');
 const { formatDuration, formatDate } = require('../../utils/date');
 
 Page({

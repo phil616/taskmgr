@@ -1,11 +1,17 @@
 package middleware
 
 import (
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
+
+func sanitizeLogValue(s string) string {
+	r := strings.NewReplacer("\n", "", "\r", "", "\t", " ")
+	return r.Replace(s)
+}
 
 func LoggerMiddleware(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -21,10 +27,10 @@ func LoggerMiddleware(logger *zap.Logger) gin.HandlerFunc {
 		fields := []zap.Field{
 			zap.Int("status", status),
 			zap.String("method", c.Request.Method),
-			zap.String("path", path),
-			zap.String("query", query),
+			zap.String("path", sanitizeLogValue(path)),
+			zap.String("query", sanitizeLogValue(query)),
 			zap.Duration("latency", latency),
-			zap.String("ip", c.ClientIP()),
+			zap.String("ip", sanitizeLogValue(c.ClientIP())),
 		}
 
 		if status >= 500 {
