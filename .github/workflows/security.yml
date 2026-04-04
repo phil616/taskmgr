@@ -112,7 +112,7 @@ jobs:
 
       - name: Upload SARIF (image — ${{ matrix.name }})
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('trivy-image-${{ matrix.name }}.sarif') != ''
+        if: ${{ always() && hashFiles(format('trivy-image-{0}.sarif', matrix.name)) != '' }}
         with:
           sarif_file: "trivy-image-${{ matrix.name }}.sarif"
           category: "trivy-image-${{ matrix.name }}"

@@ -1294,19 +1294,9 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 		return toolError("非法路径，仅允许 /api/v1/* 或 /health")
 	}
 
-	u, err := url.Parse(h.baseURL + path)
+	safeURL, err := h.buildSafeURL(path, args)
 	if err != nil {
-		return toolError("构造请求地址失败: " + err.Error())
-	}
-
-	if queryObj, ok := args["query"].(map[string]any); ok {
-		q := u.Query()
-		for k, v := range queryObj {
-			if vs := toString(v); vs != "" {
-				q.Set(k, vs)
-			}
-		}
-		u.RawQuery = q.Encode()
+		return toolError(err.Error())
 	}
 
 	var bodyReader io.Reader
@@ -1318,7 +1308,7 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 		bodyReader = bytes.NewReader(raw)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, safeURL, bodyReader)
 	if err != nil {
 		return toolError("创建请求失败: " + err.Error())
 	}
@@ -1331,7 +1321,7 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 	if headers, ok := args["headers"].(map[string]any); ok {
 		for k, v := range headers {
 			k = strings.TrimSpace(k)
-			if k == "" || strings.EqualFold(k, "X-API-Token") {
+			if k == "" || strings.EqualFold(k, "X-API-Token") || strings.EqualFold(k, "Host") {
 				continue
 			}
 			req.Header.Set(k, toString(v))
@@ -1344,7 +1334,8 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	const maxRespBody = 10 << 20 // 10 MiB
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxRespBody))
 	if err != nil {
 		return toolError("读取后端响应失败: " + err.Error())
 	}
@@ -1371,7 +1362,7 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 			"status":  resp.StatusCode,
 			"method":  method,
 			"path":    path,
-			"query":   u.RawQuery,
+			"url":     safeURL,
 			"headers": resp.Header,
 			"data":    parsed,
 		},
@@ -1393,6 +1384,45 @@ func (h *MCPHandler) writeError(c *gin.Context, id any, code int, message string
 // ──────────────────────────────────────────────
 //  辅助函数
 // ──────────────────────────────────────────────
+
+// buildSafeURL constructs a request URL from validated path and query args.
+// The result is always anchored to h.baseURL (localhost) with a whitelisted
+// path prefix, so it is not controllable by external input beyond the
+// already-validated path segment and query parameters.
+func (h *MCPHandler) buildSafeURL(validatedPath string, args map[string]any) (string, error) {
+	base, err := url.Parse(h.baseURL)
+	if err != nil {
+		return "", fmt.Errorf("baseURL 解析失败: %w", err)
+	}
+
+	ref, err := url.Parse(validatedPath)
+	if err != nil {
+		return "", fmt.Errorf("路径解析失败: %w", err)
+	}
+
+	resolved := base.ResolveReference(ref)
+
+	// Post-parse safety: ensure the resolved host has not been altered
+	// by a crafted path (e.g. "//evil.com/api/v1/...").
+	if resolved.Host != base.Host || resolved.Scheme != base.Scheme {
+		return "", fmt.Errorf("非法路径: 目标主机不符")
+	}
+	if !isAllowedPath(resolved.Path) {
+		return "", fmt.Errorf("非法路径: 解析后路径不在白名单内")
+	}
+
+	if queryObj, ok := args["query"].(map[string]any); ok {
+		q := resolved.Query()
+		for k, v := range queryObj {
+			if vs := toString(v); vs != "" {
+				q.Set(k, vs)
+			}
+		}
+		resolved.RawQuery = q.Encode()
+	}
+
+	return resolved.String(), nil
+}
 
 func isAllowedMethod(method string) bool {
 	switch method {

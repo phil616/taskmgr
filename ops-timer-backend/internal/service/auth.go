@@ -7,11 +7,11 @@ import (
 	"ops-timer-backend/internal/model"
 	"ops-timer-backend/internal/pkg/auth"
 	"ops-timer-backend/internal/repository"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 var (
@@ -22,56 +22,47 @@ var (
 )
 
 type AuthService struct {
-	userRepo   *repository.UserRepository
-	jwtManager *auth.JWTManager
-	cfg        *config.AuthConfig
-
-	loginAttempts map[string]*loginAttempt
-	mu            sync.RWMutex
+	userRepo         *repository.UserRepository
+	loginAttemptRepo *repository.LoginAttemptRepository
+	jwtManager       *auth.JWTManager
+	cfg              *config.AuthConfig
 }
 
-type loginAttempt struct {
-	Count    int
-	LockedAt time.Time
-}
-
-func NewAuthService(userRepo *repository.UserRepository, jwtManager *auth.JWTManager, cfg *config.AuthConfig) *AuthService {
+func NewAuthService(
+	userRepo *repository.UserRepository,
+	loginAttemptRepo *repository.LoginAttemptRepository,
+	jwtManager *auth.JWTManager,
+	cfg *config.AuthConfig,
+) *AuthService {
 	return &AuthService{
-		userRepo:      userRepo,
-		jwtManager:    jwtManager,
-		cfg:           cfg,
-		loginAttempts: make(map[string]*loginAttempt),
+		userRepo:         userRepo,
+		loginAttemptRepo: loginAttemptRepo,
+		jwtManager:       jwtManager,
+		cfg:              cfg,
 	}
 }
 
 func (s *AuthService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
-	s.mu.RLock()
-	attempt, exists := s.loginAttempts[req.Username]
-	s.mu.RUnlock()
-
-	if exists && attempt.Count >= s.cfg.LoginLockAttempts {
+	attempt, err := s.loginAttemptRepo.Get(req.Username)
+	if err == nil && attempt.Count >= s.cfg.LoginLockAttempts {
 		if time.Since(attempt.LockedAt) < time.Duration(s.cfg.LoginLockMinutes)*time.Minute {
 			return nil, ErrAccountLocked
 		}
-		s.mu.Lock()
-		delete(s.loginAttempts, req.Username)
-		s.mu.Unlock()
+		_ = s.loginAttemptRepo.Reset(req.Username)
 	}
 
 	user, err := s.userRepo.FindByUsername(req.Username)
 	if err != nil {
-		s.recordFailedAttempt(req.Username)
+		_ = s.loginAttemptRepo.Increment(req.Username, s.cfg.LoginLockAttempts)
 		return nil, ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		s.recordFailedAttempt(req.Username)
+		_ = s.loginAttemptRepo.Increment(req.Username, s.cfg.LoginLockAttempts)
 		return nil, ErrInvalidCredentials
 	}
 
-	s.mu.Lock()
-	delete(s.loginAttempts, req.Username)
-	s.mu.Unlock()
+	_ = s.loginAttemptRepo.Reset(req.Username)
 
 	token, err := s.jwtManager.GenerateToken(user.ID, user.Username)
 	if err != nil {
@@ -82,20 +73,6 @@ func (s *AuthService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
 		Token: token,
 		User:  s.toUserResponse(user),
 	}, nil
-}
-
-func (s *AuthService) recordFailedAttempt(username string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	attempt, exists := s.loginAttempts[username]
-	if !exists {
-		attempt = &loginAttempt{}
-		s.loginAttempts[username] = attempt
-	}
-	attempt.Count++
-	if attempt.Count >= s.cfg.LoginLockAttempts {
-		attempt.LockedAt = time.Now()
-	}
 }
 
 func (s *AuthService) Logout(tokenStr string) {
@@ -223,3 +200,6 @@ func (s *AuthService) toUserResponse(user *model.User) dto.UserResponse {
 		UpdatedAt:   user.UpdatedAt.Format(time.RFC3339),
 	}
 }
+
+// Ensure LoginAttemptRepository satisfies usage by gorm.ErrRecordNotFound
+var _ error = gorm.ErrRecordNotFound

@@ -42,7 +42,6 @@ func main() {
 	zapLogger := initLogger(cfg.Log)
 	defer zapLogger.Sync()
 
-	// 安全检查：JWT Secret 必须足够复杂
 	validateJWTSecret(cfg.Auth.JWTSecret, zapLogger)
 
 	db := initDatabase(cfg.Database)
@@ -61,9 +60,12 @@ func main() {
 	walletRepo := repository.NewWalletRepository(db)
 	categoryRepo := repository.NewBudgetCategoryRepository(db)
 	txRepo := repository.NewTransactionRepository(db)
+	revokedTokenRepo := repository.NewRevokedTokenRepository(db)
+	loginAttemptRepo := repository.NewLoginAttemptRepository(db)
 
-	// Auth
-	jwtManager := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.JWTExpiryHours)
+	// Auth — JWT blacklist backed by SQLite
+	tokenStore := repository.NewTokenBlacklistStoreAdapter(revokedTokenRepo)
+	jwtManager := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.JWTExpiryHours, tokenStore)
 
 	// Email
 	emailSvc := email.NewService(&cfg.SMTP)
@@ -73,8 +75,8 @@ func main() {
 		zapLogger.Info("SMTP 邮件通知未配置，跳过邮件功能")
 	}
 
-	// Services
-	authService := service.NewAuthService(userRepo, jwtManager, &cfg.Auth)
+	// Services — login attempts backed by SQLite
+	authService := service.NewAuthService(userRepo, loginAttemptRepo, jwtManager, &cfg.Auth)
 	unitService := service.NewUnitService(unitRepo, unitLogRepo)
 	projectService := service.NewProjectService(projectRepo, unitRepo)
 	todoService := service.NewTodoService(todoRepo, todoGroupRepo)
@@ -182,7 +184,9 @@ func initLogger(cfg config.LogConfig) *zap.Logger {
 func initDatabase(cfg config.DatabaseConfig) *gorm.DB {
 	dir := filepath.Dir(cfg.DSN)
 	if dir != "." {
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0750); err != nil {
+			log.Fatalf("创建数据目录失败: %v", err)
+		}
 	}
 
 	db, err := gorm.Open(sqlite.Open(cfg.DSN), &gorm.Config{
@@ -208,13 +212,14 @@ func autoMigrate(db *gorm.DB) {
 		&model.Wallet{},
 		&model.BudgetCategory{},
 		&model.Transaction{},
+		&model.RevokedToken{},
+		&model.LoginAttempt{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
 	}
 }
 
-// knownWeakSecrets 是常见弱密钥列表，启动时检测防止误用
 var knownWeakSecrets = []string{
 	"CHANGE_ME_TO_A_RANDOM_SECRET",
 	"change_me_to_a_random_secret_in_production",
@@ -223,7 +228,6 @@ var knownWeakSecrets = []string{
 	"jwt_secret",
 }
 
-// validateJWTSecret 检查 JWT Secret 强度，不符合要求时 Fatal 退出
 func validateJWTSecret(secret string, logger *zap.Logger) {
 	if secret == "" {
 		logger.Fatal("JWT Secret 未配置，请通过 TASK_MANAGER_AUTH_JWT_SECRET 环境变量或 .env 文件设置")

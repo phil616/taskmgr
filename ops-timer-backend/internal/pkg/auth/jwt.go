@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ErrInvalidToken = errors.New("invalid or expired token")
+	ErrInvalidToken     = errors.New("invalid or expired token")
 	ErrTokenBlacklisted = errors.New("token has been revoked")
 )
 
@@ -21,19 +21,35 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-type JWTManager struct {
-	secret     []byte
-	expiryHours int
-	blacklist  map[string]time.Time
-	mu         sync.RWMutex
+// TokenBlacklistStore abstracts persistent storage for revoked JWT tokens.
+type TokenBlacklistStore interface {
+	Add(token string, expiresAt time.Time) error
+	Exists(token string) bool
+	Cleanup() error
+	LoadAll() (map[string]time.Time, error)
 }
 
-func NewJWTManager(secret string, expiryHours int) *JWTManager {
-	return &JWTManager{
+type JWTManager struct {
+	secret      []byte
+	expiryHours int
+	blacklist   map[string]time.Time
+	store       TokenBlacklistStore
+	mu          sync.RWMutex
+}
+
+func NewJWTManager(secret string, expiryHours int, store TokenBlacklistStore) *JWTManager {
+	m := &JWTManager{
 		secret:      []byte(secret),
 		expiryHours: expiryHours,
 		blacklist:   make(map[string]time.Time),
+		store:       store,
 	}
+	if store != nil {
+		if persisted, err := store.LoadAll(); err == nil {
+			m.blacklist = persisted
+		}
+	}
+	return m
 }
 
 func (m *JWTManager) GenerateToken(userID, username string) (string, error) {
@@ -77,19 +93,29 @@ func (m *JWTManager) ValidateToken(tokenStr string) (*Claims, error) {
 }
 
 func (m *JWTManager) RevokeToken(tokenStr string) {
+	expiresAt := time.Now().Add(time.Duration(m.expiryHours) * time.Hour)
+
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.blacklist[tokenStr] = time.Now().Add(time.Duration(m.expiryHours) * time.Hour)
+	m.blacklist[tokenStr] = expiresAt
+	m.mu.Unlock()
+
+	if m.store != nil {
+		_ = m.store.Add(tokenStr, expiresAt)
+	}
 }
 
 func (m *JWTManager) CleanupBlacklist() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	now := time.Now()
 	for token, expiry := range m.blacklist {
 		if now.After(expiry) {
 			delete(m.blacklist, token)
 		}
+	}
+	m.mu.Unlock()
+
+	if m.store != nil {
+		_ = m.store.Cleanup()
 	}
 }
 
