@@ -281,6 +281,7 @@ func (s *BudgetService) CreateTransaction(req *dto.CreateTransactionRequest) (*d
 		ID:            uuid.New().String(),
 		WalletID:      req.WalletID,
 		CategoryID:    req.CategoryID,
+		ProjectID:     req.ProjectID,
 		Type:          req.Type,
 		Amount:        req.Amount,
 		Note:          req.Note,
@@ -324,6 +325,7 @@ func (s *BudgetService) ListTransactions(params *dto.TransactionQueryParams) ([]
 	filter := &repository.TransactionFilter{
 		WalletID:   params.WalletID,
 		CategoryID: params.CategoryID,
+		ProjectID:  params.ProjectID,
 		TxType:     params.Type,
 		Page:       params.Page,
 		PageSize:   params.PageSize,
@@ -363,13 +365,19 @@ func (s *BudgetService) UpdateTransaction(id string, req *dto.UpdateTransactionR
 
 	if req.CategoryID != nil {
 		if *req.CategoryID == "" {
-			// 空字符串表示明确清除分类
 			tx.CategoryID = nil
 		} else {
 			if _, err := s.categoryRepo.FindByID(*req.CategoryID); err != nil {
 				return nil, fmt.Errorf("分类不存在")
 			}
 			tx.CategoryID = req.CategoryID
+		}
+	}
+	if req.ProjectID != nil {
+		if *req.ProjectID == "" {
+			tx.ProjectID = nil
+		} else {
+			tx.ProjectID = req.ProjectID
 		}
 	}
 	if req.Amount > 0 {
@@ -523,6 +531,7 @@ func (s *BudgetService) txToResponse(t *model.Transaction, wallet *model.Wallet)
 		ID:            t.ID,
 		WalletID:      t.WalletID,
 		CategoryID:    t.CategoryID,
+		ProjectID:     t.ProjectID,
 		Type:          t.Type,
 		Amount:        t.Amount,
 		Note:          t.Note,
@@ -541,6 +550,9 @@ func (s *BudgetService) txToResponse(t *model.Transaction, wallet *model.Wallet)
 	}
 	if t.ToWallet != nil {
 		resp.ToWalletName = t.ToWallet.Name
+	}
+	if t.Project != nil {
+		resp.ProjectName = t.Project.Title
 	}
 	return resp
 }

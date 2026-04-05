@@ -21,7 +21,7 @@ func (r *TransactionRepository) Create(t *model.Transaction) error {
 
 func (r *TransactionRepository) FindByID(id string) (*model.Transaction, error) {
 	var t model.Transaction
-	err := r.db.Preload("Category").Preload("Wallet").Preload("ToWallet").
+	err := r.db.Preload("Category").Preload("Wallet").Preload("ToWallet").Preload("Project").
 		Where("id = ?", id).First(&t).Error
 	if err != nil {
 		return nil, err
@@ -32,6 +32,7 @@ func (r *TransactionRepository) FindByID(id string) (*model.Transaction, error) 
 type TransactionFilter struct {
 	WalletID   string
 	CategoryID string
+	ProjectID  string
 	TxType     string
 	StartDate  time.Time
 	EndDate    time.Time
@@ -52,6 +53,9 @@ func (r *TransactionRepository) List(f *TransactionFilter) ([]model.Transaction,
 	}
 	if f.CategoryID != "" {
 		q = q.Where("category_id = ?", f.CategoryID)
+	}
+	if f.ProjectID != "" {
+		q = q.Where("project_id = ?", f.ProjectID)
 	}
 	if f.TxType != "" {
 		q = q.Where("type = ?", f.TxType)
@@ -77,7 +81,7 @@ func (r *TransactionRepository) List(f *TransactionFilter) ([]model.Transaction,
 		return nil, 0, err
 	}
 	offset := (f.Page - 1) * f.PageSize
-	err := q.Preload("Category").Preload("Wallet").Preload("ToWallet").
+	err := q.Preload("Category").Preload("Wallet").Preload("ToWallet").Preload("Project").
 		Order("transaction_at DESC, created_at DESC").
 		Offset(offset).Limit(f.PageSize).
 		Find(&list).Error
@@ -123,6 +127,21 @@ type CategoryStat struct {
 	Total        float64
 	Count        int64
 	TxType       string
+}
+
+func (r *TransactionRepository) StatByProject(projectID string) []TxStat {
+	var results []TxStat
+	q := r.db.Model(&model.Transaction{}).
+		Select("type, COALESCE(SUM(amount), 0) as total, COUNT(*) as count").
+		Where("project_id = ?", projectID).
+		Group("type")
+	q.Scan(&results)
+	return results
+}
+
+func (r *TransactionRepository) ClearProjectTransactions(projectID string) error {
+	return r.db.Model(&model.Transaction{}).Where("project_id = ?", projectID).
+		Update("project_id", nil).Error
 }
 
 func (r *TransactionRepository) StatByCategory(walletID string, start, end time.Time) []CategoryStat {

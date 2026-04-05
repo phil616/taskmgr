@@ -124,6 +124,7 @@ func (r *Router) Setup() *gin.Engine {
 	protected.PATCH("/projects/:id", r.projectHandler.Update)
 	protected.DELETE("/projects/:id", r.projectHandler.Delete)
 	protected.GET("/projects/:id/units", r.projectHandler.GetUnits)
+	protected.GET("/projects/:id/budget", r.projectHandler.GetBudgetStats)
 
 	// Todos
 	protected.GET("/todos", r.todoHandler.List)

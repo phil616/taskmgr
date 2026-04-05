@@ -78,7 +78,7 @@ func main() {
 	// Services — login attempts backed by SQLite
 	authService := service.NewAuthService(userRepo, loginAttemptRepo, jwtManager, &cfg.Auth)
 	unitService := service.NewUnitService(unitRepo, unitLogRepo)
-	projectService := service.NewProjectService(projectRepo, unitRepo)
+	projectService := service.NewProjectService(projectRepo, unitRepo, txRepo)
 	todoService := service.NewTodoService(todoRepo, todoGroupRepo)
 	notifService := service.NewNotificationService(notifRepo)
 	scheduleService := service.NewScheduleService(scheduleRepo, projectRepo, unitRepo, todoRepo)

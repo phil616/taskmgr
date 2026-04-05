@@ -60,6 +60,62 @@ func allTools() []mcpToolDef {
 		},
 	}
 
+	// ── 认证工具 ────────────────────────────────────────────────────────
+	authGetProfile := mcpToolDef{
+		Name:        "auth_get_profile",
+		Description: "获取当前用户的个人资料信息（用户名、邮箱、昵称等）。",
+		InputSchema: gin.H{"type": "object", "properties": gin.H{}},
+	}
+	authUpdateProfile := mcpToolDef{
+		Name:        "auth_update_profile",
+		Description: "更新当前用户的个人资料（昵称、邮箱等）。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"nickname": str("新昵称（可选）"),
+				"email":    str("新邮箱（可选）"),
+			},
+		},
+	}
+	authChangePassword := mcpToolDef{
+		Name:        "auth_change_password",
+		Description: "修改当前用户的登录密码。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"old_password": str("旧密码（必填）"),
+				"new_password": str("新密码（必填，至少 6 位）"),
+			},
+			"required": []string{"old_password", "new_password"},
+		},
+	}
+	authGetToken := mcpToolDef{
+		Name:        "auth_get_token",
+		Description: "获取当前用户的 API Token 信息。",
+		InputSchema: gin.H{"type": "object", "properties": gin.H{}},
+	}
+	authRegenerateToken := mcpToolDef{
+		Name:        "auth_regenerate_token",
+		Description: "重新生成当前用户的 API Token（旧 Token 将失效）。",
+		InputSchema: gin.H{"type": "object", "properties": gin.H{}},
+	}
+	authTestEmail := mcpToolDef{
+		Name:        "auth_test_email",
+		Description: "发送测试邮件，验证 SMTP 邮件配置是否正常。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"to": str("收件人邮箱地址（必填）"),
+			},
+			"required": []string{"to"},
+		},
+	}
+	authSMTPStatus := mcpToolDef{
+		Name:        "auth_smtp_status",
+		Description: "查询 SMTP 邮件服务的配置状态。",
+		InputSchema: gin.H{"type": "object", "properties": gin.H{}},
+	}
+
 	// ── 计时单元工具（完整 CRUD + 特殊操作）────────────────────────────
 	unitList := mcpToolDef{
 		Name:        "unit_list",
@@ -236,13 +292,14 @@ func allTools() []mcpToolDef {
 				"color":       str("项目颜色（HEX，可选）"),
 				"icon":        str("项目图标（可选）"),
 				"status":      str("状态：active/completed/archived，默认 active"),
+				"max_budget":  num("项目最大预算金额（可选，0 表示不限制）"),
 			},
 			"required": []string{"title"},
 		},
 	}
 	projectUpdate := mcpToolDef{
 		Name:        "project_update",
-		Description: "更新项目信息（标题、描述、颜色等）。",
+		Description: "更新项目信息（标题、描述、颜色、预算等）。",
 		InputSchema: gin.H{
 			"type": "object",
 			"properties": gin.H{
@@ -252,6 +309,7 @@ func allTools() []mcpToolDef {
 				"color":       str("新颜色（可选）"),
 				"icon":        str("新图标（可选）"),
 				"status":      str("新状态（可选）"),
+				"max_budget":  num("新最大预算金额（可选）"),
 			},
 			"required": []string{"id"},
 		},
@@ -276,6 +334,15 @@ func allTools() []mcpToolDef {
 				"page_size": num("每页数量，默认 20"),
 			},
 			"required": []string{"id"},
+		},
+	}
+	projectBudgetStats := mcpToolDef{
+		Name:        "project_budget_stats",
+		Description: "获取指定项目的预算统计信息，包括总收入、总支出、净额、剩余预算、使用率和关联交易数。",
+		InputSchema: gin.H{
+			"type":       "object",
+			"properties": gin.H{"id": str("项目 ID（必填）")},
+			"required":   []string{"id"},
 		},
 	}
 
@@ -667,12 +734,13 @@ func allTools() []mcpToolDef {
 	// ── 预算：收支记录工具 ────────────────────────────────────────────
 	txList := mcpToolDef{
 		Name:        "transaction_list",
-		Description: "查询收支记录列表，支持按钱包、类型、日期范围、分类等筛选。结果按交易时间倒序排列。",
+		Description: "查询收支记录列表，支持按钱包、类型、日期范围、分类、项目等筛选。结果按交易时间倒序排列。",
 		InputSchema: gin.H{
 			"type": "object",
 			"properties": gin.H{
 				"wallet_id":   str("钱包 ID 筛选（可选）"),
 				"category_id": str("分类 ID 筛选（可选）"),
+				"project_id":  str("项目 ID 筛选，查看某项目关联的收支记录（可选）"),
 				"type":        str("类型筛选：income/expense/transfer（可选）"),
 				"start_date":  str("开始日期 YYYY-MM-DD（可选）"),
 				"end_date":    str("结束日期 YYYY-MM-DD（可选）"),
@@ -695,7 +763,7 @@ func allTools() []mcpToolDef {
 	}
 	txCreate := mcpToolDef{
 		Name:        "transaction_create",
-		Description: "新增一条收支记录（收入/支出/转账）。新增后自动更新对应钱包余额。",
+		Description: "新增一条收支记录（收入/支出/转账）。新增后自动更新对应钱包余额。可关联到某个项目。",
 		InputSchema: gin.H{
 			"type": "object",
 			"properties": gin.H{
@@ -703,6 +771,7 @@ func allTools() []mcpToolDef {
 				"type":           str("类型：income（收入）/expense（支出）/transfer（转账），必填"),
 				"amount":         num("金额，必须大于 0（必填）"),
 				"category_id":    str("分类 ID（可选）"),
+				"project_id":     str("关联项目 ID，将此收支记录归属到指定项目（可选）"),
 				"note":           str("备注（可选）"),
 				"tags":           arr(gin.H{"type": "string"}, "标签（可选）"),
 				"transaction_at": str("交易时间 ISO8601，如 2024-01-15T12:30:00（必填）"),
@@ -713,12 +782,13 @@ func allTools() []mcpToolDef {
 	}
 	txUpdate := mcpToolDef{
 		Name:        "transaction_update",
-		Description: "更新收支记录的金额、分类、备注、标签或交易时间。",
+		Description: "更新收支记录的金额、分类、备注、标签、交易时间或关联项目。",
 		InputSchema: gin.H{
 			"type": "object",
 			"properties": gin.H{
 				"id":             str("记录 ID（必填）"),
 				"category_id":    str("新分类 ID（可选）"),
+				"project_id":     str("新关联项目 ID，传空字符串可取消关联（可选）"),
 				"amount":         num("新金额（可选）"),
 				"note":           str("新备注（可选）"),
 				"tags":           arr(gin.H{"type": "string"}, "新标签（可选）"),
@@ -753,10 +823,12 @@ func allTools() []mcpToolDef {
 
 	return []mcpToolDef{
 		generic,
+		// Auth (7)
+		authGetProfile, authUpdateProfile, authChangePassword, authGetToken, authRegenerateToken, authTestEmail, authSMTPStatus,
 		// Units (10)
 		unitList, unitGet, unitCreate, unitUpdate, unitDelete, unitUpdateStatus, unitStep, unitSetValue, unitLogs, unitSummary,
-		// Projects (6)
-		projectList, projectGet, projectCreate, projectUpdate, projectDelete, projectUnits,
+		// Projects (7)
+		projectList, projectGet, projectCreate, projectUpdate, projectDelete, projectUnits, projectBudgetStats,
 		// Todos (11)
 		todoList, todoGet, todoCreate, todoUpdate, todoDelete, todoUpdateStatus, todoBatch,
 		todoGroupList, todoGroupCreate, todoGroupUpdate, todoGroupDelete,
@@ -798,6 +870,22 @@ func toolToHTTP(name string, args map[string]any) (*httpCall, error) {
 	}
 
 	switch name {
+
+	// ── Auth ──
+	case "auth_get_profile":
+		return &httpCall{method: "GET", path: "/api/v1/auth/profile"}, nil
+	case "auth_update_profile":
+		return &httpCall{method: "PUT", path: "/api/v1/auth/profile", body: args}, nil
+	case "auth_change_password":
+		return &httpCall{method: "PUT", path: "/api/v1/auth/password", body: args}, nil
+	case "auth_get_token":
+		return &httpCall{method: "GET", path: "/api/v1/auth/token"}, nil
+	case "auth_regenerate_token":
+		return &httpCall{method: "POST", path: "/api/v1/auth/token/regenerate"}, nil
+	case "auth_test_email":
+		return &httpCall{method: "POST", path: "/api/v1/auth/test-email", body: args}, nil
+	case "auth_smtp_status":
+		return &httpCall{method: "GET", path: "/api/v1/auth/smtp-status"}, nil
 
 	// ── Units ──
 	case "unit_list":
@@ -878,6 +966,12 @@ func toolToHTTP(name string, args map[string]any) (*httpCall, error) {
 			return nil, err
 		}
 		return &httpCall{method: "GET", path: "/api/v1/projects/" + id + "/units", query: pickStrings(args, "page", "page_size")}, nil
+	case "project_budget_stats":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "GET", path: "/api/v1/projects/" + id + "/budget"}, nil
 
 	// ── Todos ──
 	case "todo_list":
@@ -1033,7 +1127,7 @@ func toolToHTTP(name string, args map[string]any) (*httpCall, error) {
 
 	// ── Budget：Transactions ──
 	case "transaction_list":
-		return &httpCall{method: "GET", path: "/api/v1/transactions", query: pickStrings(args, "wallet_id", "category_id", "type", "start_date", "end_date", "min_amount", "max_amount", "keyword", "page", "page_size")}, nil
+		return &httpCall{method: "GET", path: "/api/v1/transactions", query: pickStrings(args, "wallet_id", "category_id", "project_id", "type", "start_date", "end_date", "min_amount", "max_amount", "keyword", "page", "page_size")}, nil
 	case "transaction_get":
 		id, err := requireID()
 		if err != nil {

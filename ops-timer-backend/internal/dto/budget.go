@@ -78,6 +78,7 @@ type CategoryResponse struct {
 type CreateTransactionRequest struct {
 	WalletID      string   `json:"wallet_id" binding:"required"`
 	CategoryID    *string  `json:"category_id"`
+	ProjectID     *string  `json:"project_id"`
 	Type          string   `json:"type" binding:"required,oneof=income expense transfer"`
 	Amount        float64  `json:"amount" binding:"required,gt=0"`
 	Note          string   `json:"note" binding:"omitempty,max=512"`
@@ -88,6 +89,7 @@ type CreateTransactionRequest struct {
 
 type UpdateTransactionRequest struct {
 	CategoryID    *string  `json:"category_id"`
+	ProjectID     *string  `json:"project_id"`
 	Amount        float64  `json:"amount" binding:"omitempty,gt=0"`
 	Note          *string  `json:"note" binding:"omitempty,max=512"`
 	Tags          []string `json:"tags"`
@@ -97,6 +99,7 @@ type UpdateTransactionRequest struct {
 type TransactionQueryParams struct {
 	WalletID   string  `form:"wallet_id"`
 	CategoryID string  `form:"category_id"`
+	ProjectID  string  `form:"project_id"`
 	Type       string  `form:"type"`
 	StartDate  string  `form:"start_date"`
 	EndDate    string  `form:"end_date"`
@@ -115,6 +118,8 @@ type TransactionResponse struct {
 	CategoryName    string            `json:"category_name"`
 	CategoryIcon    string            `json:"category_icon"`
 	CategoryColor   string            `json:"category_color"`
+	ProjectID       *string           `json:"project_id"`
+	ProjectName     string            `json:"project_name"`
 	Type            string            `json:"type"`
 	Amount          float64           `json:"amount"`
 	Note            string            `json:"note"`

@@ -14,10 +14,11 @@ var ErrProjectNotFound = errors.New("项目不存在")
 type ProjectService struct {
 	projectRepo *repository.ProjectRepository
 	unitRepo    *repository.UnitRepository
+	txRepo      *repository.TransactionRepository
 }
 
-func NewProjectService(projectRepo *repository.ProjectRepository, unitRepo *repository.UnitRepository) *ProjectService {
-	return &ProjectService{projectRepo: projectRepo, unitRepo: unitRepo}
+func NewProjectService(projectRepo *repository.ProjectRepository, unitRepo *repository.UnitRepository, txRepo *repository.TransactionRepository) *ProjectService {
+	return &ProjectService{projectRepo: projectRepo, unitRepo: unitRepo, txRepo: txRepo}
 }
 
 func (s *ProjectService) Create(req *dto.CreateProjectRequest) (*dto.ProjectResponse, error) {
@@ -28,6 +29,7 @@ func (s *ProjectService) Create(req *dto.CreateProjectRequest) (*dto.ProjectResp
 		Status:      "active",
 		Color:       req.Color,
 		Icon:        req.Icon,
+		MaxBudget:   req.MaxBudget,
 	}
 
 	if req.Status != "" {
@@ -67,7 +69,7 @@ func (s *ProjectService) List(params *dto.ProjectQueryParams) ([]dto.ProjectResp
 
 	responses := make([]dto.ProjectResponse, len(projects))
 	for i, p := range projects {
-		responses[i] = *s.toResponse(&p, false)
+		responses[i] = *s.toResponse(&p, true)
 	}
 	return responses, total, nil
 }
@@ -96,6 +98,9 @@ func (s *ProjectService) Update(id string, req *dto.UpdateProjectRequest) (*dto.
 	if req.SortOrder != nil {
 		project.SortOrder = *req.SortOrder
 	}
+	if req.MaxBudget != nil {
+		project.MaxBudget = *req.MaxBudget
+	}
 
 	if err := s.projectRepo.Update(project); err != nil {
 		return nil, err
@@ -109,7 +114,36 @@ func (s *ProjectService) Delete(id string) error {
 		return ErrProjectNotFound
 	}
 	s.projectRepo.ClearProjectUnits(id)
+	s.txRepo.ClearProjectTransactions(id)
 	return s.projectRepo.Delete(id)
+}
+
+func (s *ProjectService) GetBudgetStats(id string) (*dto.ProjectBudgetStats, error) {
+	project, err := s.projectRepo.FindByID(id)
+	if err != nil {
+		return nil, ErrProjectNotFound
+	}
+
+	stats := s.txRepo.StatByProject(id)
+	budgetStats := &dto.ProjectBudgetStats{
+		MaxBudget: project.MaxBudget,
+	}
+	for _, st := range stats {
+		switch st.Type {
+		case model.TransactionTypeIncome:
+			budgetStats.TotalIncome = st.Total
+			budgetStats.TxCount += st.Count
+		case model.TransactionTypeExpense:
+			budgetStats.TotalExpense = st.Total
+			budgetStats.TxCount += st.Count
+		}
+	}
+	budgetStats.NetAmount = budgetStats.TotalIncome - budgetStats.TotalExpense
+	budgetStats.Remaining = project.MaxBudget - budgetStats.TotalExpense
+	if project.MaxBudget > 0 {
+		budgetStats.UsageRate = budgetStats.TotalExpense / project.MaxBudget
+	}
+	return budgetStats, nil
 }
 
 func (s *ProjectService) toResponse(project *model.Project, withStats bool) *dto.ProjectResponse {
@@ -121,6 +155,7 @@ func (s *ProjectService) toResponse(project *model.Project, withStats bool) *dto
 		Color:       project.Color,
 		Icon:        project.Icon,
 		SortOrder:   project.SortOrder,
+		MaxBudget:   project.MaxBudget,
 		CreatedAt:   project.CreatedAt,
 		UpdatedAt:   project.UpdatedAt,
 	}
@@ -135,6 +170,27 @@ func (s *ProjectService) toResponse(project *model.Project, withStats bool) *dto
 			CompletedCount: completedCount,
 			TotalCount:     totalCount,
 		}
+
+		txStats := s.txRepo.StatByProject(project.ID)
+		budgetStats := &dto.ProjectBudgetStats{
+			MaxBudget: project.MaxBudget,
+		}
+		for _, st := range txStats {
+			switch st.Type {
+			case model.TransactionTypeIncome:
+				budgetStats.TotalIncome = st.Total
+				budgetStats.TxCount += st.Count
+			case model.TransactionTypeExpense:
+				budgetStats.TotalExpense = st.Total
+				budgetStats.TxCount += st.Count
+			}
+		}
+		budgetStats.NetAmount = budgetStats.TotalIncome - budgetStats.TotalExpense
+		budgetStats.Remaining = project.MaxBudget - budgetStats.TotalExpense
+		if project.MaxBudget > 0 {
+			budgetStats.UsageRate = budgetStats.TotalExpense / project.MaxBudget
+		}
+		resp.BudgetStats = budgetStats
 	}
 
 	return resp

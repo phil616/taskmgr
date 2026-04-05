@@ -54,6 +54,7 @@ type Transaction struct {
 	ID              string          `gorm:"primaryKey;size:36" json:"id"`
 	WalletID        string          `gorm:"size:36;not null;index" json:"wallet_id"`
 	CategoryID      *string         `gorm:"size:36;index" json:"category_id"`
+	ProjectID       *string         `gorm:"size:36;index" json:"project_id"`
 	Type            string          `gorm:"size:20;not null" json:"type"` // income / expense / transfer
 	Amount          float64         `gorm:"not null" json:"amount"`
 	Note            string          `gorm:"size:512" json:"note"`
@@ -68,4 +69,5 @@ type Transaction struct {
 	Wallet   *Wallet         `gorm:"foreignKey:WalletID" json:"wallet,omitempty"`
 	Category *BudgetCategory `gorm:"foreignKey:CategoryID" json:"category,omitempty"`
 	ToWallet *Wallet         `gorm:"foreignKey:ToWalletID" json:"to_wallet,omitempty"`
+	Project  *Project        `gorm:"foreignKey:ProjectID" json:"project,omitempty"`
 }

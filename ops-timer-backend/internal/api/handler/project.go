@@ -115,3 +115,17 @@ func (h *ProjectHandler) GetUnits(c *gin.Context) {
 		TotalPages: response.CalculateTotalPages(total, pageSize),
 	})
 }
+
+func (h *ProjectHandler) GetBudgetStats(c *gin.Context) {
+	id := c.Param("id")
+	stats, err := h.projectService.GetBudgetStats(id)
+	if err != nil {
+		if err == service.ErrProjectNotFound {
+			response.NotFound(c, err.Error())
+		} else {
+			response.InternalError(c, err.Error())
+		}
+		return
+	}
+	response.Success(c, stats)
+}
