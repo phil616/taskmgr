@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
-  title: 运维任务管理系统 API
+  title: 任务管理系统 API
   description: |
-    面向运维场景的任务、日程、项目、待办与通知管理 REST API。
+    面向OpenClaw等智能体场景的任务、日程、项目、待办与通知管理 REST API。
 
     ## 认证
     - **JWT**：在请求头添加 `Authorization: Bearer <token>`，`token` 由 `POST /api/v1/auth/login` 获得。
