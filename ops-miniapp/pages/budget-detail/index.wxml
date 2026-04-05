@@ -142,6 +142,16 @@
             </picker>
           </view>
 
+          <view class="field-wrap" wx:if="{{projects.length > 0}}">
+            <text class="field-label">关联项目</text>
+            <picker mode="selector" range="{{projects}}" range-key="title" bind:change="onTxProjectChange">
+              <view class="picker-btn">
+                <text>{{txForm.projectName || '无（可选）'}}</text>
+                <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
           <view class="field-wrap">
             <text class="field-label">日期</text>
             <picker mode="date" value="{{txForm.transaction_at.slice(0,10)}}" bind:change="onTxDateChange">

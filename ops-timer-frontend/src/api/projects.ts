@@ -1,5 +1,5 @@
 import { get, post, put, patch, del } from './client'
-import type { Project, Unit } from '@/types'
+import type { Project, Unit, ProjectBudgetStats, Transaction, TransactionQueryParams } from '@/types'
 
 export const projectApi = {
   list: (params?: Record<string, any>) => get<Project[]>('/projects', params),
@@ -16,4 +16,7 @@ export const projectApi = {
 
   getUnits: (id: string, params?: Record<string, any>) =>
     get<Unit[]>(`/projects/${id}/units`, params),
+
+  getBudgetStats: (id: string) =>
+    get<ProjectBudgetStats>(`/projects/${id}/budget`),
 }

@@ -81,6 +81,7 @@ func (r *Router) Setup() *gin.Engine {
 	})
 	if r.mcpHandler != nil {
 		engine.POST(r.mcpPath, r.mcpHandler.Handle)
+		engine.GET(r.mcpPath, r.mcpHandler.GetInfo)
 		engine.GET(r.mcpPath+"/config", r.mcpHandler.GetConfig)
 	}
 

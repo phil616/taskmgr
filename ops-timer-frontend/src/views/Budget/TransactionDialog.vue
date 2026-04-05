@@ -86,6 +86,17 @@
           </template>
         </v-select>
 
+        <!-- 关联项目 -->
+        <v-select
+          v-model="form.project_id"
+          :items="projectOptions"
+          label="关联项目（可选）"
+          variant="outlined"
+          density="compact"
+          class="mb-3"
+          clearable
+        />
+
         <!-- 交易时间 -->
         <v-text-field
           v-model="form.transaction_at"
@@ -132,7 +143,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { transactionApi, categoryApi } from '@/api/budget'
-import type { Transaction, BudgetCategory, Wallet } from '@/types'
+import { projectApi } from '@/api/projects'
+import type { Transaction, BudgetCategory, Wallet, Project } from '@/types'
 import dayjs from 'dayjs'
 
 const props = defineProps<{
@@ -140,6 +152,7 @@ const props = defineProps<{
   transaction?: Transaction | null
   wallets: Wallet[]
   defaultWalletId?: string
+  defaultProjectId?: string
 }>()
 const emit = defineEmits<{
   (e: 'update:modelValue', v: boolean): void
@@ -149,17 +162,23 @@ const emit = defineEmits<{
 
 const saving = ref(false)
 const categories = ref<BudgetCategory[]>([])
+const projects = ref<Project[]>([])
 
 const form = ref({
   type: 'expense' as 'income' | 'expense' | 'transfer',
   wallet_id: '',
   to_wallet_id: '',
   category_id: '',
+  project_id: '',
   amount: 0 as number,
   note: '',
   tags: [] as string[],
   transaction_at: dayjs().format('YYYY-MM-DDTHH:mm'),
 })
+
+const projectOptions = computed(() =>
+  projects.value.map(p => ({ title: p.title, value: p.id }))
+)
 
 const walletOptions = computed(() =>
   props.wallets.map(w => ({
@@ -183,9 +202,19 @@ async function loadCategories() {
   }
 }
 
+async function loadProjects() {
+  try {
+    const res = await projectApi.list({ status: 'active', page_size: 100 })
+    projects.value = res.data ?? []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
 watch(() => props.modelValue, (v) => {
   if (!v) return
   loadCategories()
+  loadProjects()
   if (props.transaction) {
     const tx = props.transaction
     form.value = {
@@ -193,6 +222,7 @@ watch(() => props.modelValue, (v) => {
       wallet_id: tx.wallet_id,
       to_wallet_id: tx.to_wallet_id ?? '',
       category_id: tx.category_id ?? '',
+      project_id: tx.project_id ?? '',
       amount: tx.amount,
       note: tx.note,
       tags: tx.tags ?? [],
@@ -204,6 +234,7 @@ watch(() => props.modelValue, (v) => {
       wallet_id: props.defaultWalletId ?? (props.wallets[0]?.id ?? ''),
       to_wallet_id: '',
       category_id: '',
+      project_id: props.defaultProjectId ?? '',
       amount: 0,
       note: '',
       tags: [],
@@ -227,8 +258,8 @@ async function save() {
 
     const payload = {
       wallet_id: form.value.wallet_id,
-      // null/空 → 不传（新建时无分类）；有值 → 传分类 ID
       category_id: form.value.category_id || undefined,
+      project_id: form.value.project_id || undefined,
       type: form.value.type,
       amount: form.value.amount,
       note: form.value.note,
@@ -241,8 +272,11 @@ async function save() {
       // 更新时：category_id 用空字符串表示"清除"，后端识别此语义
       const updatePayload = {
         category_id: form.value.category_id === null || form.value.category_id === ''
-          ? ''         // 明确清除
+          ? ''
           : (form.value.category_id ?? undefined),
+        project_id: form.value.project_id === null || form.value.project_id === ''
+          ? ''
+          : (form.value.project_id ?? undefined),
         amount: payload.amount,
         note: payload.note,
         tags: cleanTags,

@@ -28,6 +28,35 @@
     </view>
   </view>
 
+  <!-- 项目预算入口 -->
+  <view wx:if="{{projectBudgets.length > 0}}" class="section-header">
+    <text class="section-title">项目预算</text>
+  </view>
+  <scroll-view wx:if="{{projectBudgets.length > 0}}" scroll-x class="project-scroll">
+    <view
+      wx:for="{{projectBudgets}}"
+      wx:key="id"
+      class="project-budget-card"
+      style="border-top: 6rpx solid {{item.color || '#007aff'}}"
+      bind:tap="openProjectBudget"
+      data-project="{{item}}"
+    >
+      <text class="pb-title">{{item.title}}</text>
+      <view wx:if="{{item.max_budget > 0}}" class="pb-progress">
+        <view class="pb-bar-bg">
+          <view class="pb-bar-fill" style="width:{{item.usagePercent}}%; background:{{item.progressColor}}"></view>
+        </view>
+        <view class="pb-nums">
+          <text class="pb-spent">¥{{item.expenseText}}</text>
+          <text class="pb-budget">/ ¥{{item.budgetText}}</text>
+        </view>
+      </view>
+      <view wx:else class="pb-no-budget">
+        <text class="pb-no-text">未设预算</text>
+      </view>
+    </view>
+  </scroll-view>
+
   <!-- 钱包列表 -->
   <view wx:if="{{loading}}" class="loading-wrap">
     <t-loading theme="dots" size="80rpx" />

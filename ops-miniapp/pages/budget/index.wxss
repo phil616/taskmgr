@@ -102,3 +102,29 @@ page { background: var(--td-bg-color-page); }
 .color-dot { width: 48rpx; height: 48rpx; border-radius: 50%; border: 4rpx solid transparent; }
 .color-dot--active { border-color: var(--td-text-color-primary); transform: scale(1.2); }
 .btn-row { display: flex; gap: 20rpx; margin-top: 8rpx; }
+
+/* 项目预算 */
+.section-header { padding: 24rpx 32rpx 12rpx; }
+.section-title { font-size: 30rpx; font-weight: 600; color: var(--td-text-color-primary); }
+.project-scroll {
+  white-space: nowrap; padding: 0 24rpx 20rpx;
+}
+.project-budget-card {
+  display: inline-block; width: 320rpx; vertical-align: top;
+  background: var(--td-bg-color-container); border-radius: var(--td-radius-large);
+  padding: 20rpx 24rpx; margin-right: 16rpx;
+  box-shadow: 0 2rpx 12rpx var(--td-shadow-1);
+}
+.pb-title {
+  font-size: 28rpx; font-weight: 600; color: var(--td-text-color-primary);
+  display: block; margin-bottom: 16rpx;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pb-progress { margin-top: 4rpx; }
+.pb-bar-bg { height: 12rpx; background: var(--td-bg-color-page); border-radius: 6rpx; overflow: hidden; }
+.pb-bar-fill { height: 100%; border-radius: 6rpx; transition: width 0.3s; }
+.pb-nums { display: flex; align-items: baseline; gap: 6rpx; margin-top: 8rpx; }
+.pb-spent { font-size: 26rpx; font-weight: 600; color: var(--td-text-color-primary); }
+.pb-budget { font-size: 22rpx; color: var(--td-text-color-secondary); }
+.pb-no-budget { margin-top: 4rpx; }
+.pb-no-text { font-size: 24rpx; color: var(--td-text-color-placeholder); }

@@ -27,9 +27,12 @@ Page({
       transaction_at: '',
       to_wallet_id: '',
       toWalletName: '',
+      project_id: '',
+      projectName: '',
     },
     saving: false,
     wallets: [],
+    projects: [],
 
     typeFilterOptions: [
       { label: '全部', value: '' },
@@ -51,6 +54,7 @@ Page({
     this.fetchCategories();
     this.fetchWallets();
     this.fetchWalletInfo();
+    this.fetchProjects();
   },
 
   onPullDownRefresh() {
@@ -129,6 +133,13 @@ Page({
     } catch (_) {}
   },
 
+  async fetchProjects() {
+    try {
+      const resp = await get('/projects', { status: 'active', page_size: 100 });
+      this.setData({ projects: resp.data || [] });
+    } catch (_) {}
+  },
+
   onTypeFilterChange(e) {
     const opt = this.data.typeFilterOptions[e.detail.value];
     this.setData({ typeFilter: opt.value, typeFilterLabel: opt.label || '全部类型', page: 1 });
@@ -143,7 +154,7 @@ Page({
     this.setData({
       txDialogVisible: true,
       editingTx: null,
-      txForm: { type: 'expense', amount: '', category_id: '', categoryName: '', note: '', transaction_at: dt, to_wallet_id: '', toWalletName: '' },
+      txForm: { type: 'expense', amount: '', category_id: '', categoryName: '', note: '', transaction_at: dt, to_wallet_id: '', toWalletName: '', project_id: '', projectName: '' },
     });
   },
 
@@ -153,6 +164,7 @@ Page({
     const ws = this.data.wallets;
     const catObj = cats.find(c => c.id === tx.category_id);
     const walletObj = ws.find(w => w.id === tx.to_wallet_id);
+    const projObj = this.data.projects.find(p => p.id === tx.project_id);
     this.setData({
       txDialogVisible: true,
       editingTx: tx,
@@ -165,6 +177,8 @@ Page({
         transaction_at: tx.transaction_at ? tx.transaction_at.slice(0, 16).replace('T', ' ') : '',
         to_wallet_id: tx.to_wallet_id || '',
         toWalletName: walletObj ? walletObj.name : '',
+        project_id: tx.project_id || '',
+        projectName: projObj ? projObj.title : '',
       },
     });
   },
@@ -191,6 +205,11 @@ Page({
     const w = ws[e.detail.value];
     this.setData({ 'txForm.to_wallet_id': w?.id || '', 'txForm.toWalletName': w?.name || '' });
   },
+  onTxProjectChange(e) {
+    const ps = this.data.projects;
+    const p = ps[e.detail.value];
+    this.setData({ 'txForm.project_id': p?.id || '', 'txForm.projectName': p?.title || '' });
+  },
 
   async saveTx() {
     const { txForm, editingTx, walletId } = this.data;
@@ -209,6 +228,7 @@ Page({
         transaction_at: txForm.transaction_at + ':00',
       };
       if (txForm.category_id) payload.category_id = txForm.category_id;
+      if (txForm.project_id) payload.project_id = txForm.project_id;
       if (txForm.type === 'transfer' && txForm.to_wallet_id) payload.to_wallet_id = txForm.to_wallet_id;
 
       if (editingTx) {
@@ -216,6 +236,7 @@ Page({
           amount,
           note: txForm.note,
           category_id: txForm.category_id || null,
+          project_id: txForm.project_id || null,
           transaction_at: txForm.transaction_at + ':00',
         });
       } else {

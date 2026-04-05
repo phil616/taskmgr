@@ -37,6 +37,135 @@
       </v-card-text>
     </v-card>
 
+    <!-- 项目预算 -->
+    <v-card class="rounded-lg mb-4">
+      <v-card-title class="d-flex align-center">
+        <v-icon class="mr-2" color="amber-darken-2">mdi-wallet</v-icon>
+        项目预算
+        <v-spacer />
+        <v-btn size="small" variant="text" prepend-icon="mdi-pencil" @click="openBudgetDialog">
+          设置预算
+        </v-btn>
+      </v-card-title>
+      <v-divider />
+      <v-card-text>
+        <template v-if="budgetStats">
+          <!-- 预算进度条 -->
+          <div v-if="project.max_budget > 0" class="mb-4">
+            <div class="d-flex justify-space-between align-center mb-1">
+              <span class="text-body-2 text-medium-emphasis">预算使用</span>
+              <span class="text-body-2 font-weight-medium">
+                ¥{{ formatAmount(budgetStats.total_expense) }} / ¥{{ formatAmount(project.max_budget) }}
+              </span>
+            </div>
+            <v-progress-linear
+              :model-value="Math.min(budgetStats.usage_rate * 100, 100)"
+              :color="budgetProgressColor"
+              height="12"
+              rounded
+              class="mb-1"
+            />
+            <div class="d-flex justify-space-between">
+              <span class="text-caption" :class="budgetStats.remaining >= 0 ? 'text-success' : 'text-error'">
+                {{ budgetStats.remaining >= 0 ? '剩余' : '超支' }} ¥{{ formatAmount(Math.abs(budgetStats.remaining)) }}
+              </span>
+              <span class="text-caption text-medium-emphasis">
+                {{ (budgetStats.usage_rate * 100).toFixed(1) }}%
+              </span>
+            </div>
+          </div>
+          <div v-else class="text-center text-medium-emphasis py-2 mb-3">
+            <v-icon size="20" class="mr-1">mdi-information-outline</v-icon>
+            未设置最大预算，点击右上角"设置预算"配置
+          </div>
+
+          <!-- 收支汇总 -->
+          <v-row>
+            <v-col cols="4">
+              <div class="text-center">
+                <div class="text-caption text-medium-emphasis">总收入</div>
+                <div class="text-body-1 font-weight-bold text-success">+¥{{ formatAmount(budgetStats.total_income) }}</div>
+              </div>
+            </v-col>
+            <v-col cols="4">
+              <div class="text-center">
+                <div class="text-caption text-medium-emphasis">总支出</div>
+                <div class="text-body-1 font-weight-bold text-error">-¥{{ formatAmount(budgetStats.total_expense) }}</div>
+              </div>
+            </v-col>
+            <v-col cols="4">
+              <div class="text-center">
+                <div class="text-caption text-medium-emphasis">净额</div>
+                <div class="text-body-1 font-weight-bold" :class="budgetStats.net_amount >= 0 ? 'text-success' : 'text-error'">
+                  {{ budgetStats.net_amount >= 0 ? '+' : '' }}¥{{ formatAmount(budgetStats.net_amount) }}
+                </div>
+              </div>
+            </v-col>
+          </v-row>
+        </template>
+        <div v-else-if="budgetLoaded" class="text-center text-medium-emphasis py-4">
+          <v-icon size="20" class="mr-1">mdi-information-outline</v-icon>
+          未设置最大预算，点击右上角"设置预算"配置
+        </div>
+        <div v-else class="text-center py-4">
+          <v-progress-circular indeterminate size="24" />
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <!-- 项目收支记录 -->
+    <v-card class="rounded-lg mb-4">
+      <v-card-title class="d-flex align-center">
+        <v-icon class="mr-2" color="blue">mdi-format-list-bulleted</v-icon>
+        项目收支记录
+        <v-chip size="small" class="ml-2" variant="tonal">{{ projectTransactions.length }}</v-chip>
+        <v-spacer />
+        <v-btn size="small" color="primary" variant="tonal" prepend-icon="mdi-plus" @click="openAddTxDialog">
+          添加记录
+        </v-btn>
+      </v-card-title>
+      <v-divider />
+
+      <v-list v-if="projectTransactions.length > 0" lines="two">
+        <v-list-item
+          v-for="tx in projectTransactions"
+          :key="tx.id"
+          @click="openEditTxDialog(tx)"
+          class="cursor-pointer"
+        >
+          <template #prepend>
+            <v-avatar :color="tx.category_color || '#9E9E9E'" size="36">
+              <v-icon size="18" color="white">{{ tx.category_icon || 'mdi-cash' }}</v-icon>
+            </v-avatar>
+          </template>
+          <v-list-item-title class="font-weight-medium">
+            {{ tx.category_name || '未分类' }}
+            <span v-if="tx.note" class="text-medium-emphasis text-body-2 ml-2">{{ tx.note }}</span>
+          </v-list-item-title>
+          <v-list-item-subtitle>
+            {{ dayjs(tx.transaction_at).format('YYYY-MM-DD HH:mm') }}
+            <span v-if="tx.wallet_name" class="ml-1">· {{ tx.wallet_name }}</span>
+          </v-list-item-subtitle>
+          <template #append>
+            <span
+              class="text-body-1 font-weight-bold"
+              :class="tx.type === 'income' ? 'text-success' : tx.type === 'expense' ? 'text-error' : 'text-primary'"
+            >
+              {{ tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : '⇄' }}¥{{ formatAmount(tx.amount) }}
+            </span>
+          </template>
+        </v-list-item>
+      </v-list>
+
+      <v-card-text v-else class="text-center text-medium-emphasis py-8">
+        <v-icon size="48" color="grey-lighten-1" class="mb-3">mdi-receipt-text-outline</v-icon>
+        <div>该项目暂无收支记录</div>
+        <v-btn color="primary" variant="tonal" class="mt-3" prepend-icon="mdi-plus" @click="openAddTxDialog">
+          添加记录
+        </v-btn>
+      </v-card-text>
+    </v-card>
+
     <!-- 关联单元管理 -->
     <v-card class="rounded-lg">
       <v-card-title class="d-flex align-center">
@@ -122,6 +251,38 @@
       </v-card-text>
     </v-card>
 
+    <!-- 设置预算对话框 -->
+    <v-dialog v-model="showBudgetDialog" max-width="420" persistent>
+      <v-card class="rounded-lg">
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2">mdi-wallet</v-icon>
+          设置项目预算
+          <v-spacer />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="showBudgetDialog = false" />
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="pa-4">
+          <v-text-field
+            v-model.number="budgetForm.max_budget"
+            label="最大预算"
+            type="number"
+            variant="outlined"
+            density="compact"
+            prefix="¥"
+            hint="设置为 0 表示不限制预算"
+            persistent-hint
+            :rules="[v => v >= 0 || '预算不能为负数']"
+          />
+        </v-card-text>
+        <v-divider />
+        <v-card-actions class="pa-3">
+          <v-spacer />
+          <v-btn variant="text" @click="showBudgetDialog = false">取消</v-btn>
+          <v-btn color="primary" variant="flat" :loading="savingBudget" @click="saveBudget">保存</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- 添加单元对话框 -->
     <v-dialog v-model="showAddDialog" max-width="720" scrollable>
       <v-card class="rounded-lg">
@@ -203,6 +364,16 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- 收支记录弹窗（复用 TransactionDialog） -->
+    <TransactionDialog
+      v-model="showTxDialog"
+      :transaction="editingTx"
+      :wallets="wallets"
+      :default-project-id="projectId"
+      @saved="onTxSaved"
+      @deleted="onTxDeleted"
+    />
   </div>
   <div v-else class="text-center py-12"><v-progress-circular indeterminate /></div>
 </template>
@@ -212,19 +383,41 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
-import type { Project, Unit } from '@/types'
+import dayjs from 'dayjs'
+import type { Project, Unit, ProjectBudgetStats, Transaction, Wallet } from '@/types'
 import { projectApi } from '@/api/projects'
 import { unitApi } from '@/api/units'
+import { walletApi, transactionApi } from '@/api/budget'
+import TransactionDialog from '@/views/Budget/TransactionDialog.vue'
 import {
   getStatusColor, getStatusLabel, getPriorityColor, getPriorityLabel,
   getUnitTypeLabel, formatDuration,
 } from '@/utils/time'
 
 const route = useRoute()
+const projectId = computed(() => route.params.id as string)
 const project = ref<Project | null>(null)
 const units = ref<Unit[]>([])
 const allUnits = ref<Unit[]>([])
 const loadingAll = ref(false)
+const budgetStats = ref<ProjectBudgetStats | null>(null)
+const budgetLoaded = ref(false)
+const projectTransactions = ref<Transaction[]>([])
+const wallets = ref<Wallet[]>([])
+
+// 预算进度条颜色
+const budgetProgressColor = computed(() => {
+  if (!budgetStats.value) return 'primary'
+  const rate = budgetStats.value.usage_rate
+  if (rate >= 1) return 'error'
+  if (rate >= 0.8) return 'warning'
+  return 'success'
+})
+
+// 设置预算
+const showBudgetDialog = ref(false)
+const savingBudget = ref(false)
+const budgetForm = ref({ max_budget: 0 })
 
 // 添加单元
 const showAddDialog = ref(false)
@@ -237,14 +430,47 @@ const showRemoveConfirm = ref(false)
 const removingUnit = ref<Unit | null>(null)
 const removingId = ref<string | null>(null)
 
+// 收支记录弹窗
+const showTxDialog = ref(false)
+const editingTx = ref<Transaction | null>(null)
+
+function formatAmount(n: number) {
+  return Math.abs(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 async function fetchProject() {
-  const resp = await projectApi.getById(route.params.id as string)
-  project.value = resp.data
+  try {
+    const resp = await projectApi.getById(projectId.value)
+    project.value = resp.data
+    budgetStats.value = resp.data?.budget_stats ?? null
+  } catch (e) {
+    console.error(e)
+  } finally {
+    budgetLoaded.value = true
+  }
 }
 
 async function fetchUnits() {
-  const resp = await projectApi.getUnits(route.params.id as string, { page_size: 200 })
+  const resp = await projectApi.getUnits(projectId.value, { page_size: 200 })
   units.value = resp.data || []
+}
+
+async function fetchProjectTransactions() {
+  try {
+    const resp = await transactionApi.list({ project_id: projectId.value, page_size: 200 })
+    projectTransactions.value = resp.data || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+async function fetchWallets() {
+  try {
+    const resp = await walletApi.list()
+    wallets.value = resp.data || []
+  } catch (e) {
+    console.error(e)
+  }
 }
 
 async function fetchAllUnits() {
@@ -257,17 +483,13 @@ async function fetchAllUnits() {
   }
 }
 
-// 项目 id → 标题的快速查找
-function getProjectTitle(projectId: string): string {
-  // 当前项目
-  if (project.value && project.value.id === projectId) return project.value.title
-  return projectId
+function getProjectTitle(pid: string): string {
+  if (project.value && project.value.id === pid) return project.value.title
+  return pid
 }
 
-// 已在当前项目中的 unit id 集合
 const currentProjectUnitIds = computed(() => new Set(units.value.map(u => u.id)))
 
-// 可加入当前项目的单元：排除已经在本项目中的
 const availableUnits = computed(() =>
   allUnits.value.filter(u => !currentProjectUnitIds.value.has(u.id))
 )
@@ -278,6 +500,46 @@ const filteredAvailableUnits = computed(() => {
   return availableUnits.value.filter(u => u.title.toLowerCase().includes(q))
 })
 
+// --- 预算设置 ---
+function openBudgetDialog() {
+  budgetForm.value.max_budget = project.value?.max_budget ?? 0
+  showBudgetDialog.value = true
+}
+
+async function saveBudget() {
+  if (budgetForm.value.max_budget < 0) return
+  savingBudget.value = true
+  try {
+    await projectApi.update(projectId.value, { max_budget: budgetForm.value.max_budget })
+    showBudgetDialog.value = false
+    await fetchProject()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    savingBudget.value = false
+  }
+}
+
+// --- 收支记录 ---
+function openAddTxDialog() {
+  editingTx.value = null
+  showTxDialog.value = true
+}
+
+function openEditTxDialog(tx: Transaction) {
+  editingTx.value = tx
+  showTxDialog.value = true
+}
+
+async function onTxSaved() {
+  await Promise.all([fetchProject(), fetchProjectTransactions()])
+}
+
+async function onTxDeleted() {
+  await Promise.all([fetchProject(), fetchProjectTransactions()])
+}
+
+// --- 单元管理 ---
 async function openAddDialog() {
   selectedUnitIds.value = []
   addSearch.value = ''
@@ -291,7 +553,7 @@ async function confirmAddUnits() {
   try {
     await Promise.all(
       selectedUnitIds.value.map(id =>
-        unitApi.assignToProject(id, route.params.id as string)
+        unitApi.assignToProject(id, projectId.value)
       )
     )
     showAddDialog.value = false
@@ -322,6 +584,8 @@ async function confirmRemove() {
 onMounted(async () => {
   await fetchProject()
   fetchUnits()
+  fetchProjectTransactions()
+  fetchWallets()
 })
 </script>
 

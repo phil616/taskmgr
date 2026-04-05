@@ -4,6 +4,7 @@ const { formatAmount, currentMonthStart, currentMonthEnd } = require('../../util
 Page({
   data: {
     wallets: [],
+    projectBudgets: [],
     loading: false,
     overviewIncome: 0,
     overviewExpense: 0,
@@ -34,10 +35,11 @@ Page({
     }
     this.fetchWallets();
     this.fetchOverview();
+    this.fetchProjectBudgets();
   },
 
   onPullDownRefresh() {
-    Promise.all([this.fetchWallets(), this.fetchOverview()])
+    Promise.all([this.fetchWallets(), this.fetchOverview(), this.fetchProjectBudgets()])
       .finally(() => wx.stopPullDownRefresh());
   },
 
@@ -172,6 +174,32 @@ Page({
         }
       },
     });
+  },
+
+  async fetchProjectBudgets() {
+    try {
+      const resp = await get('/projects', { status: 'active', page_size: 50 });
+      const projects = (resp.data || []).map(p => {
+        const stats = p.budget_stats || {};
+        const rate = stats.usage_rate || 0;
+        let progressColor = '#008858';
+        if (rate >= 1) progressColor = '#d54941';
+        else if (rate >= 0.8) progressColor = '#e37318';
+        return {
+          ...p,
+          expenseText: formatAmount(stats.total_expense || 0),
+          budgetText: formatAmount(p.max_budget || 0),
+          usagePercent: Math.min(rate * 100, 100),
+          progressColor,
+        };
+      });
+      this.setData({ projectBudgets: projects });
+    } catch (_) {}
+  },
+
+  openProjectBudget(e) {
+    const project = e.currentTarget.dataset.project;
+    wx.navigateTo({ url: `/pages/project-budget/index?id=${project.id}&name=${encodeURIComponent(project.title)}` });
   },
 
   goCategories() {

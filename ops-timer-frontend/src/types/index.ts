@@ -104,9 +104,11 @@ export interface Project {
   color: string
   icon: string
   sort_order: number
+  max_budget: number
   created_at: string
   updated_at: string
   unit_stats?: ProjectUnitStats
+  budget_stats?: ProjectBudgetStats
 }
 
 export interface ProjectUnitStats {
@@ -114,6 +116,16 @@ export interface ProjectUnitStats {
   expiring_count: number
   completed_count: number
   total_count: number
+}
+
+export interface ProjectBudgetStats {
+  total_income: number
+  total_expense: number
+  net_amount: number
+  max_budget: number
+  remaining: number
+  usage_rate: number
+  tx_count: number
 }
 
 export interface Todo {
@@ -316,6 +328,8 @@ export interface Transaction {
   category_name: string
   category_icon: string
   category_color: string
+  project_id?: string
+  project_name?: string
   type: TransactionType
   amount: number
   note: string
@@ -329,6 +343,7 @@ export interface Transaction {
 export interface CreateTransactionRequest {
   wallet_id: string
   category_id?: string
+  project_id?: string
   type: TransactionType
   amount: number
   note?: string
@@ -338,7 +353,8 @@ export interface CreateTransactionRequest {
 }
 
 export interface UpdateTransactionRequest {
-  category_id?: string | null  // null 或 '' 均表示清除分类
+  category_id?: string | null
+  project_id?: string | null
   amount?: number
   note?: string
   tags?: string[]
@@ -348,6 +364,7 @@ export interface UpdateTransactionRequest {
 export interface TransactionQueryParams {
   wallet_id?: string
   category_id?: string
+  project_id?: string
   type?: TransactionType
   start_date?: string
   end_date?: string

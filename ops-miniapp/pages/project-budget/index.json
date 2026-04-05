@@ -1,0 +1,12 @@
+{
+  "navigationBarTitleText": "项目预算",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-input": "tdesign-miniprogram/input/input",
+    "t-popup": "tdesign-miniprogram/popup/popup",
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "t-switch": "tdesign-miniprogram/switch/switch"
+  }
+}

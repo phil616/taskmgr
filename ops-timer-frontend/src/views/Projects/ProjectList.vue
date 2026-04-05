@@ -37,6 +37,21 @@
                 <div class="text-caption text-medium-emphasis">总计</div>
               </div>
             </div>
+            <!-- 预算进度 -->
+            <div v-if="project.max_budget > 0 && project.budget_stats" class="mt-3">
+              <div class="d-flex justify-space-between mb-1">
+                <span class="text-caption text-medium-emphasis">预算</span>
+                <span class="text-caption">
+                  ¥{{ fmtAmt(project.budget_stats.total_expense) }} / ¥{{ fmtAmt(project.max_budget) }}
+                </span>
+              </div>
+              <v-progress-linear
+                :model-value="Math.min(project.budget_stats.usage_rate * 100, 100)"
+                :color="project.budget_stats.usage_rate >= 1 ? 'error' : project.budget_stats.usage_rate >= 0.8 ? 'warning' : 'success'"
+                height="6"
+                rounded
+              />
+            </div>
           </v-card-text>
           <v-divider />
           <v-card-actions>
@@ -70,6 +85,14 @@
               <v-text-field v-model="form.icon" label="图标" placeholder="mdi-folder" />
             </v-col>
           </v-row>
+          <v-text-field
+            v-model.number="form.max_budget"
+            label="最大预算（可选）"
+            type="number"
+            prefix="¥"
+            hint="设置为 0 或留空表示不限预算"
+            persistent-hint
+          />
         </v-card-text>
         <v-divider />
         <v-card-actions>
@@ -93,7 +116,11 @@ const loading = ref(false)
 const saving = ref(false)
 const showDialog = ref(false)
 const editingProject = ref<Project | null>(null)
-const form = reactive({ title: '', description: '', color: '', icon: '' })
+const form = reactive({ title: '', description: '', color: '', icon: '', max_budget: 0 })
+
+function fmtAmt(n: number) {
+  return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 /** 去除常见 Markdown 语法符号，用于卡片摘要预览 */
 function stripMd(text: string): string {
@@ -124,14 +151,14 @@ async function fetchProjects() {
 
 function editProject(project: Project) {
   editingProject.value = project
-  Object.assign(form, { title: project.title, description: project.description, color: project.color, icon: project.icon })
+  Object.assign(form, { title: project.title, description: project.description, color: project.color, icon: project.icon, max_budget: project.max_budget || 0 })
   showDialog.value = true
 }
 
 function closeDialog() {
   showDialog.value = false
   editingProject.value = null
-  Object.assign(form, { title: '', description: '', color: '', icon: '' })
+  Object.assign(form, { title: '', description: '', color: '', icon: '', max_budget: 0 })
 }
 
 async function saveProject() {

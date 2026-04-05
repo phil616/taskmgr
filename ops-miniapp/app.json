@@ -9,7 +9,8 @@
     "pages/budget-detail/index",
     "pages/budget-categories/index",
     "pages/units/index",
-    "pages/unit-detail/index"
+    "pages/unit-detail/index",
+    "pages/project-budget/index"
   ],
   "tabBar": {
     "custom": true,

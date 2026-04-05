@@ -1,0 +1,201 @@
+<view class="page">
+  <!-- 预算概览卡片 -->
+  <view wx:if="{{budgetStats}}" class="budget-overview" style="background:{{project.color || '#007aff'}}">
+    <text class="bo-title">{{project.title}}</text>
+
+    <!-- 进度条 -->
+    <view wx:if="{{project.max_budget > 0}}" class="progress-section">
+      <view class="progress-header">
+        <text class="progress-label">预算使用</text>
+        <text class="progress-text">¥{{budgetStats.totalExpenseText}} / ¥{{budgetStats.maxBudgetText}}</text>
+      </view>
+      <view class="progress-bar-bg">
+        <view class="progress-bar-fill" style="width:{{usagePercent}}%; background:{{progressColor}}"></view>
+      </view>
+      <view class="progress-footer">
+        <text class="progress-remain {{budgetStats.remainingPositive ? 'text-remain-ok' : 'text-remain-over'}}">
+          {{budgetStats.remainingPositive ? '剩余' : '超支'}} ¥{{budgetStats.remainingText}}
+        </text>
+        <text class="progress-rate">{{budgetStats.usagePercentText}}%</text>
+      </view>
+    </view>
+    <view wx:else class="no-budget-hint">
+      <t-icon name="info-circle" size="28rpx" color="rgba(255,255,255,0.7)" />
+      <text class="no-budget-text">未设置最大预算</text>
+    </view>
+
+    <!-- 收支汇总 -->
+    <view class="stats-row">
+      <view class="stat-col">
+        <text class="stat-label">总收入</text>
+        <text class="stat-val text-income">+¥{{budgetStats.totalIncomeText}}</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-col">
+        <text class="stat-label">总支出</text>
+        <text class="stat-val text-expense">-¥{{budgetStats.totalExpenseText}}</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-col">
+        <text class="stat-label">净额</text>
+        <text class="stat-val {{budgetStats.netPositive ? 'text-income' : 'text-expense'}}">
+          {{budgetStats.netPositive ? '+' : '-'}}¥{{budgetStats.netAmountText}}
+        </text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 操作栏 -->
+  <view class="action-bar">
+    <view class="action-btn" bind:tap="openBudgetDialog">
+      <t-icon name="setting" size="36rpx" color="#007aff" />
+      <text class="action-text">设置预算</text>
+    </view>
+    <view class="action-btn-primary" bind:tap="openCreateTx">
+      <t-icon name="add" size="36rpx" color="#fff" />
+      <text class="action-text-white">添加记录</text>
+    </view>
+  </view>
+
+  <!-- 收支记录列表 -->
+  <view wx:if="{{loading && transactions.length === 0}}" class="loading-wrap">
+    <t-loading theme="dots" size="80rpx" />
+  </view>
+  <view wx:elif="{{transactions.length === 0}}" class="empty-wrap">
+    <t-icon name="money-circle" size="96rpx" color="#c7c7cc" />
+    <text class="empty-text">该项目暂无收支记录</text>
+    <t-button size="small" theme="primary" variant="outline" bind:tap="openCreateTx">添加第一条记录</t-button>
+  </view>
+  <scroll-view wx:else scroll-y class="tx-list">
+    <view
+      wx:for="{{transactions}}"
+      wx:key="id"
+      class="tx-card"
+    >
+      <view class="tx-left" bind:tap="openEditTx" data-tx="{{item}}">
+        <view class="tx-cat-icon" style="background:{{item.category_color || '#f2f2f7'}}">
+          <t-icon name="{{item.category_icon || 'money-circle'}}" size="36rpx" color="{{item.category_color ? '#fff' : '#8e8e93'}}" />
+        </view>
+        <view class="tx-info">
+          <text class="tx-category">{{item.category_name || '未分类'}}</text>
+          <text class="tx-date">{{item.dateText}}</text>
+          <text wx:if="{{item.wallet_name}}" class="tx-wallet">{{item.wallet_name}}</text>
+          <text wx:if="{{item.note}}" class="tx-note">{{item.note}}</text>
+        </view>
+      </view>
+      <view class="tx-right">
+        <text class="tx-amount" style="color:{{item.typeColor}}">{{item.typeSign}}¥{{item.amountText}}</text>
+        <text class="tx-type-label" style="color:{{item.typeColor}}">{{item.typeLabel}}</text>
+      </view>
+      <view class="tx-actions">
+        <view bind:tap="deleteTx" data-id="{{item.id}}">
+          <t-icon name="delete" size="32rpx" color="#ff3b30" />
+        </view>
+      </view>
+    </view>
+    <view style="height: calc(40rpx + env(safe-area-inset-bottom));"></view>
+  </scroll-view>
+
+  <!-- 设置预算弹窗 -->
+  <t-popup visible="{{budgetDialogVisible}}" placement="bottom" bind:visible-change="closeBudgetDialog">
+    <view class="dialog-sheet">
+      <view class="dialog-handle"></view>
+      <view class="dialog-header">
+        <text class="dialog-title">设置项目预算</text>
+        <view bind:tap="closeBudgetDialog">
+          <t-icon name="close" size="44rpx" color="#8e8e93" />
+        </view>
+      </view>
+      <view class="dialog-body">
+        <view class="field-wrap">
+          <text class="field-label">最大预算（¥）</text>
+          <t-input
+            placeholder="0 表示不限预算"
+            type="digit"
+            value="{{budgetForm.max_budget}}"
+            bind:change="onBudgetInput"
+            prefix-icon="money-circle"
+          />
+        </view>
+        <t-button theme="primary" block loading="{{savingBudget}}" bind:tap="saveBudget">保存</t-button>
+      </view>
+    </view>
+  </t-popup>
+
+  <!-- 新建/编辑交易弹窗 -->
+  <t-popup visible="{{txDialogVisible}}" placement="bottom" bind:visible-change="closeTxDialog">
+    <view class="dialog-sheet">
+      <view class="dialog-handle"></view>
+      <view class="dialog-header">
+        <text class="dialog-title">{{editingTx ? '编辑记录' : '新增记录'}}</text>
+        <view bind:tap="closeTxDialog">
+          <t-icon name="close" size="44rpx" color="#8e8e93" />
+        </view>
+      </view>
+      <scroll-view scroll-y class="dialog-scroll">
+        <view class="dialog-body">
+          <!-- 类型选择 -->
+          <view class="field-wrap">
+            <text class="field-label">类型</text>
+            <view class="type-tabs">
+              <view
+                class="type-tab {{txForm.type === 'expense' ? 'type-tab--active type-tab--expense' : ''}}"
+                bind:tap="onTxTypeChange"
+                data-value="0"
+              >支出</view>
+              <view
+                class="type-tab {{txForm.type === 'income' ? 'type-tab--active type-tab--income' : ''}}"
+                bind:tap="onTxTypeChange"
+                data-value="1"
+              >收入</view>
+            </view>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">金额 *</text>
+            <t-input placeholder="0.00" type="digit" value="{{txForm.amount}}" bind:change="onTxAmountInput" prefix-icon="money-circle" />
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">钱包 *</text>
+            <picker mode="selector" range="{{wallets}}" range-key="name" bind:change="onTxWalletChange">
+              <view class="picker-btn">
+                <text>{{txForm.walletName || '选择钱包'}}</text>
+                <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">分类</text>
+            <picker mode="selector" range="{{categories}}" range-key="name" bind:change="onTxCategoryChange">
+              <view class="picker-btn">
+                <text>{{txForm.categoryName || '无分类'}}</text>
+                <t-icon name="chevron-down" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">日期</text>
+            <picker mode="date" value="{{txForm.transaction_at.slice(0,10)}}" bind:change="onTxDateChange">
+              <view class="picker-btn">
+                <text>{{txForm.transaction_at.slice(0,10) || '选择日期'}}</text>
+                <t-icon name="calendar" size="28rpx" color="#8e8e93" />
+              </view>
+            </picker>
+          </view>
+
+          <view class="field-wrap">
+            <text class="field-label">备注</text>
+            <t-input placeholder="可选备注" value="{{txForm.note}}" bind:change="onTxNoteInput" />
+          </view>
+
+          <t-button theme="primary" block size="large" loading="{{saving}}" bind:tap="saveTx">
+            {{editingTx ? '更新记录' : '保存记录'}}
+          </t-button>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

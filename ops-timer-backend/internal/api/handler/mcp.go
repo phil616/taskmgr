@@ -1324,6 +1324,179 @@ func (h *MCPHandler) GetConfig(c *gin.Context) {
 	})
 }
 
+// GetInfo 返回面向人类的 MCP 端点说明页（GET /mcp）
+func (h *MCPHandler) GetInfo(c *gin.Context) {
+	mcpURL := h.externalURL + h.mcpPath
+	if h.externalURL == "" {
+		scheme := "http"
+		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		mcpURL = scheme + "://" + c.Request.Host + h.mcpPath
+	}
+
+	tools := allTools()
+	groups := []struct {
+		Label string
+		Names []string
+	}{
+		{"认证", nil}, {"计时单元", nil}, {"项目", nil}, {"待办事项", nil},
+		{"待办分组", nil}, {"通知", nil}, {"日程", nil}, {"钱包", nil},
+		{"收支分类", nil}, {"收支记录", nil}, {"统计", nil}, {"通用", nil},
+	}
+	prefix := []string{
+		"auth_", "unit_", "project_", "todo_",
+		"todo_group_", "notification_", "schedule_", "wallet_",
+		"budget_category_", "transaction_", "budget_stats", "backend_request",
+	}
+
+	for _, t := range tools {
+		placed := false
+		for i := len(prefix) - 1; i >= 0; i-- {
+			if strings.HasPrefix(t.Name, prefix[i]) || t.Name == prefix[i] {
+				groups[i].Names = append(groups[i].Names, t.Name)
+				placed = true
+				break
+			}
+		}
+		if !placed {
+			groups[len(groups)-1].Names = append(groups[len(groups)-1].Names, t.Name)
+		}
+	}
+
+	var toolListHTML strings.Builder
+	for _, g := range groups {
+		if len(g.Names) == 0 {
+			continue
+		}
+		toolListHTML.WriteString(`<div class="tool-group"><h3>`)
+		toolListHTML.WriteString(g.Label)
+		toolListHTML.WriteString(fmt.Sprintf(` <span class="badge">%d</span></h3><ul>`, len(g.Names)))
+		for _, n := range g.Names {
+			toolListHTML.WriteString(`<li><code>`)
+			toolListHTML.WriteString(n)
+			toolListHTML.WriteString(`</code></li>`)
+		}
+		toolListHTML.WriteString(`</ul></div>`)
+	}
+
+	configJSON := fmt.Sprintf(`{
+  "mcpServers": {
+    "%s": {
+      "url": "%s",
+      "headers": {
+        "X-API-Token": "<your-api-token>"
+      }
+    }
+  }
+}`, h.serverName, mcpURL)
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MCP Endpoint — %s</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;justify-content:center;padding:2rem 1rem}
+.container{max-width:720px;width:100%%}
+.hero{text-align:center;margin-bottom:2.5rem}
+.hero h1{font-size:1.8rem;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;margin-bottom:.5rem}
+.hero .subtitle{color:#94a3b8;font-size:1rem}
+.card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem}
+.card h2{font-size:1.15rem;color:#f1f5f9;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.card h2 .icon{font-size:1.3rem}
+.alert{background:#1e3a5f;border:1px solid #2563eb;border-radius:8px;padding:1rem;
+font-size:.9rem;color:#93c5fd;line-height:1.6}
+.config-wrap{position:relative}
+pre{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:1rem;
+font-size:.85rem;line-height:1.5;overflow-x:auto;color:#a5f3fc;font-family:"Fira Code",Consolas,monospace}
+.copy-btn{position:absolute;top:.5rem;right:.5rem;background:#334155;color:#e2e8f0;border:none;
+border-radius:6px;padding:.35rem .75rem;cursor:pointer;font-size:.8rem;transition:all .2s}
+.copy-btn:hover{background:#475569}
+.copy-btn.copied{background:#059669;color:#fff}
+.steps{list-style:none;counter-reset:s}
+.steps li{counter-increment:s;padding:.6rem 0 .6rem 2.2rem;position:relative;font-size:.9rem;
+color:#cbd5e1;border-bottom:1px solid #1e293b}
+.steps li:last-child{border-bottom:none}
+.steps li::before{content:counter(s);position:absolute;left:0;top:.55rem;width:1.6rem;height:1.6rem;
+border-radius:50%%;background:#334155;color:#38bdf8;font-size:.8rem;display:flex;align-items:center;
+justify-content:center;font-weight:600}
+.steps code{background:#334155;padding:.15rem .4rem;border-radius:4px;font-size:.82rem;color:#a5f3fc}
+.tool-group{margin-bottom:1rem}
+.tool-group h3{font-size:.95rem;color:#94a3b8;margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
+.badge{background:#334155;color:#38bdf8;font-size:.75rem;padding:.1rem .45rem;border-radius:10px}
+.tool-group ul{display:flex;flex-wrap:wrap;gap:.4rem;list-style:none}
+.tool-group li code{background:#0f172a;border:1px solid #334155;padding:.2rem .5rem;border-radius:4px;
+font-size:.78rem;color:#67e8f9;display:inline-block}
+.meta{text-align:center;color:#475569;font-size:.8rem;margin-top:1.5rem}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="hero">
+  <h1>🤖 MCP Endpoint</h1>
+  <p class="subtitle">Model Context Protocol — %s v%s</p>
+</div>
+
+<div class="card">
+  <h2><span class="icon">⚠️</span> 这不是普通网页</h2>
+  <div class="alert">
+    此端点是 <strong>MCP（Model Context Protocol）</strong> 服务接口，专为 AI 助手设计。<br>
+    AI 客户端（如 Cursor、Claude Desktop）通过 <strong>POST</strong> 请求发送 JSON-RPC 调用来使用此接口。<br>
+    你正在通过浏览器 GET 请求访问，所以看到了此说明页面。
+  </div>
+</div>
+
+<div class="card">
+  <h2><span class="icon">⚙️</span> 快速配置</h2>
+  <div class="config-wrap">
+    <button class="copy-btn" onclick="copyConfig(this)">复制</button>
+    <pre id="config-json">%s</pre>
+  </div>
+  <ol class="steps" style="margin-top:1rem">
+    <li>登录系统后，在 <strong>设置 → API Token</strong> 获取你的 Token</li>
+    <li>将上方配置中的 <code>&lt;your-api-token&gt;</code> 替换为真实 Token</li>
+    <li>粘贴到 MCP 客户端配置中：<br>
+      <strong>Cursor</strong> → Settings → MCP<br>
+      <strong>Claude Desktop</strong> → <code>mcp_config.json</code><br>
+      <strong>其他客户端</strong> → 参照各自文档</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2><span class="icon">🛠️</span> 可用工具（共 %d 个）</h2>
+  %s
+</div>
+
+<p class="meta">MCP Protocol %s · <a href="%s/config" style="color:#475569">JSON 配置接口</a></p>
+
+</div>
+<script>
+function copyConfig(btn){
+  var t=document.getElementById('config-json').textContent;
+  navigator.clipboard.writeText(t).then(function(){
+    btn.textContent='已复制 ✓';btn.classList.add('copied');
+    setTimeout(function(){btn.textContent='复制';btn.classList.remove('copied')},2000);
+  });
+}
+</script>
+</body>
+</html>`,
+		h.serverName,
+		h.serverName, h.serverVer,
+		configJSON,
+		len(tools), toolListHTML.String(),
+		mcpProtocolVersion, mcpURL,
+	)
+
+	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
+}
+
 // dispatchTool 统一调度：具名工具 or 通用代理
 func (h *MCPHandler) dispatchTool(ctx context.Context, apiToken, toolName string, args map[string]any) gin.H {
 	if args == nil {
