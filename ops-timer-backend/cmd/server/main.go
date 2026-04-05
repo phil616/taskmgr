@@ -62,6 +62,8 @@ func main() {
 	txRepo := repository.NewTransactionRepository(db)
 	revokedTokenRepo := repository.NewRevokedTokenRepository(db)
 	loginAttemptRepo := repository.NewLoginAttemptRepository(db)
+	secretRepo := repository.NewSecretRepository(db)
+	secretAuditRepo := repository.NewSecretAuditLogRepository(db)
 
 	// Auth — JWT blacklist backed by SQLite
 	tokenStore := repository.NewTokenBlacklistStoreAdapter(revokedTokenRepo)
@@ -83,6 +85,7 @@ func main() {
 	notifService := service.NewNotificationService(notifRepo)
 	scheduleService := service.NewScheduleService(scheduleRepo, projectRepo, unitRepo, todoRepo)
 	budgetService := service.NewBudgetService(walletRepo, categoryRepo, txRepo)
+	secretService := service.NewSecretService(secretRepo, secretAuditRepo, projectRepo)
 
 	if err := authService.EnsureAdminExists(*adminUser, *adminPass); err != nil {
 		zapLogger.Fatal("创建管理员账户失败", zap.Error(err))
@@ -105,6 +108,7 @@ func main() {
 	notifHandler := handler.NewNotificationHandler(notifService)
 	scheduleHandler := handler.NewScheduleHandler(scheduleService)
 	budgetHandler := handler.NewBudgetHandler(budgetService)
+	secretHandler := handler.NewSecretHandler(secretService)
 	var mcpHandler *handler.MCPHandler
 	if cfg.MCP.Enabled {
 		mcpHandler = handler.NewMCPHandler(handler.MCPHandlerConfig{
@@ -130,6 +134,7 @@ func main() {
 		NotifHandler:    notifHandler,
 		ScheduleHandler: scheduleHandler,
 		BudgetHandler:   budgetHandler,
+		SecretHandler:   secretHandler,
 		MCPHandler:      mcpHandler,
 		JWTManager:      jwtManager,
 		AuthService:     authService,
@@ -214,6 +219,8 @@ func autoMigrate(db *gorm.DB) {
 		&model.Transaction{},
 		&model.RevokedToken{},
 		&model.LoginAttempt{},
+		&model.Secret{},
+		&model.SecretAuditLog{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)

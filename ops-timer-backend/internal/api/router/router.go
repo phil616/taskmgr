@@ -20,6 +20,7 @@ type Router struct {
 	notifHandler    *handler.NotificationHandler
 	scheduleHandler *handler.ScheduleHandler
 	budgetHandler   *handler.BudgetHandler
+	secretHandler   *handler.SecretHandler
 	mcpHandler      *handler.MCPHandler
 	jwtManager      *auth.JWTManager
 	authService     *service.AuthService
@@ -36,6 +37,7 @@ type RouterConfig struct {
 	NotifHandler    *handler.NotificationHandler
 	ScheduleHandler *handler.ScheduleHandler
 	BudgetHandler   *handler.BudgetHandler
+	SecretHandler   *handler.SecretHandler
 	MCPHandler      *handler.MCPHandler
 	JWTManager      *auth.JWTManager
 	AuthService     *service.AuthService
@@ -58,6 +60,7 @@ func NewRouter(cfg *RouterConfig) *Router {
 		notifHandler:    cfg.NotifHandler,
 		scheduleHandler: cfg.ScheduleHandler,
 		budgetHandler:   cfg.BudgetHandler,
+		secretHandler:   cfg.SecretHandler,
 		mcpHandler:      cfg.MCPHandler,
 		jwtManager:      cfg.JWTManager,
 		authService:     cfg.AuthService,
@@ -182,6 +185,17 @@ func (r *Router) Setup() *gin.Engine {
 
 	// Budget - Stats
 	protected.GET("/budget/stats", r.budgetHandler.GetStats)
+
+	// Secrets
+	protected.GET("/secrets", r.secretHandler.List)
+	protected.POST("/secrets", r.secretHandler.Create)
+	protected.GET("/secrets/:id", r.secretHandler.Get)
+	protected.PUT("/secrets/:id", r.secretHandler.Update)
+	protected.PATCH("/secrets/:id", r.secretHandler.Update)
+	protected.DELETE("/secrets/:id", r.secretHandler.Delete)
+	protected.GET("/secrets/:id/value", r.secretHandler.GetValue)
+	protected.GET("/secrets/:id/audit-logs", r.secretHandler.AuditLogs)
+	protected.GET("/secret-audit-logs", r.secretHandler.AuditLogs)
 
 	r.engine = engine
 	return engine

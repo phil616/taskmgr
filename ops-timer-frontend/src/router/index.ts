@@ -60,6 +60,11 @@ const router = createRouter({
           component: () => import('@/views/Budget/BudgetPage.vue'),
         },
         {
+          path: 'secrets',
+          name: 'secrets',
+          component: () => import('@/views/Secrets/SecretList.vue'),
+        },
+        {
           path: 'notifications',
           name: 'notifications',
           component: () => import('@/views/Notifications.vue'),

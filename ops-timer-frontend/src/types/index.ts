@@ -393,3 +393,66 @@ export interface WalletStatResponse {
   category_stats: CategoryStatItem[]
 }
 
+// ==================== Secret 密钥管理 ====================
+
+export interface Secret {
+  id: string
+  name: string
+  value: string
+  description: string
+  tags: string[]
+  project_id: string | null
+  project_name?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SecretBrief {
+  id: string
+  name: string
+  description: string
+  tags: string[]
+  project_id: string | null
+  project_name?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateSecretRequest {
+  name: string
+  value: string
+  description?: string
+  tags?: string[]
+  project_id?: string | null
+}
+
+export interface UpdateSecretRequest {
+  name?: string
+  value?: string
+  description?: string
+  tags?: string[]
+  project_id?: string | null
+}
+
+export interface SecretQueryParams {
+  name?: string
+  tag?: string
+  project_id?: string
+  page?: number
+  page_size?: number
+}
+
+export type SecretAuditAction = 'created' | 'read' | 'updated' | 'deleted' | 'value_read' | 'listed'
+
+export interface SecretAuditLog {
+  id: string
+  secret_id: string
+  action: SecretAuditAction
+  user_id: string
+  username: string
+  ip_address: string
+  user_agent: string
+  detail: string
+  created_at: string
+}
+

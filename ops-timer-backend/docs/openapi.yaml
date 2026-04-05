@@ -64,6 +64,10 @@ tags:
     description: 收支记录
   - name: BudgetStats
     description: 预算统计汇总
+  - name: Secrets
+    description: 密钥管理（明文存储，含审计日志）
+  - name: SecretAuditLogs
+    description: 密钥审计日志
   - name: MCP
     description: MCP（Model Context Protocol）AI 智能体接入
 
@@ -2037,6 +2041,333 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  # ── Secrets ──────────────────────────────────────────────────────────
+
+  /api/v1/secrets:
+    get:
+      tags: [Secrets]
+      summary: 获取密钥列表（不含密钥值）
+      operationId: secretList
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      parameters:
+        - name: name
+          in: query
+          schema:
+            type: string
+          description: 名称模糊搜索
+        - name: tag
+          in: query
+          schema:
+            type: string
+          description: 标签筛选
+        - name: project_id
+          in: query
+          schema:
+            type: string
+          description: 项目 ID 筛选
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: 密钥列表（不含密钥值）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SecretBriefResponse"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Secrets]
+      summary: 创建密钥
+      operationId: secretCreate
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSecretRequest"
+      responses:
+        "201":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SecretResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          description: 密钥名称重复
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeError"
+
+  /api/v1/secrets/{id}:
+    get:
+      tags: [Secrets]
+      summary: 获取密钥详情（含密钥值，会记录审计日志）
+      operationId: secretGet
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 密钥详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SecretResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Secrets]
+      summary: 更新密钥
+      operationId: secretUpdate
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSecretRequest"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SecretResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: 密钥名称重复
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvelopeError"
+    patch:
+      tags: [Secrets]
+      summary: 部分更新密钥
+      operationId: secretPatch
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSecretRequest"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SecretResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Secrets]
+      summary: 删除密钥（软删除）
+      operationId: secretDelete
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: 删除成功
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/secrets/{id}/value:
+    get:
+      tags: [Secrets]
+      summary: 仅获取密钥值（审计记录为 value_read）
+      operationId: secretGetValue
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 密钥值
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          name:
+                            type: string
+                          value:
+                            type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/secrets/{id}/audit-logs:
+    get:
+      tags: [SecretAuditLogs]
+      summary: 获取指定密钥的审计日志
+      operationId: secretAuditLogsBySecret
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+            enum: [created, read, updated, deleted, value_read, listed]
+          description: 操作类型筛选
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: 审计日志列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SecretAuditLogResponse"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/secret-audit-logs:
+    get:
+      tags: [SecretAuditLogs]
+      summary: 获取全部密钥审计日志
+      operationId: secretAuditLogsAll
+      security:
+        - BearerAuth: []
+        - ApiTokenAuth: []
+      parameters:
+        - name: secret_id
+          in: query
+          schema:
+            type: string
+          description: 密钥 ID 筛选
+        - name: action
+          in: query
+          schema:
+            type: string
+            enum: [created, read, updated, deleted, value_read, listed]
+          description: 操作类型筛选
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: 审计日志列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SecretAuditLogResponse"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   # ── MCP ────────────────────────────────────────────────────────────
 
   /mcp:
@@ -3380,6 +3711,131 @@ components:
           type: string
           nullable: true
         to_wallet_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Secret Schemas ─────────────────────────────────────────────────
+
+    CreateSecretRequest:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+          description: 密钥名称（唯一）
+        value:
+          type: string
+          description: 密钥值（明文存储）
+        description:
+          type: string
+          maxLength: 2048
+          description: 描述
+        tags:
+          type: array
+          items:
+            type: string
+          description: 标签
+        project_id:
+          type: string
+          nullable: true
+          description: 关联项目 ID
+
+    UpdateSecretRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        value:
+          type: string
+        description:
+          type: string
+          maxLength: 2048
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        project_id:
+          type: string
+          nullable: true
+          description: 关联项目 ID，传空字符串取消关联
+
+    SecretResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        value:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        project_id:
+          type: string
+          nullable: true
+        project_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SecretBriefResponse:
+      type: object
+      description: 密钥摘要（不含密钥值）
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        project_id:
+          type: string
+          nullable: true
+        project_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SecretAuditLogResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        secret_id:
+          type: string
+        action:
+          type: string
+          enum: [created, read, updated, deleted, value_read, listed]
+        user_id:
+          type: string
+        username:
+          type: string
+        ip_address:
+          type: string
+        user_agent:
+          type: string
+        detail:
           type: string
         created_at:
           type: string

@@ -110,6 +110,7 @@ const navItems = [
   { title: '待办事项', icon: 'mdi-checkbox-marked-outline', to: '/todos' },
   { title: '日程管理', icon: 'mdi-calendar-month', to: '/schedule' },
   { title: '预算管理', icon: 'mdi-wallet', to: '/budget' },
+  { title: '密钥管理', icon: 'mdi-key-variant', to: '/secrets' },
   { title: '通知中心', icon: 'mdi-bell-outline', to: '/notifications' },
 ]
 
@@ -122,6 +123,7 @@ const titleMap: Record<string, string> = {
   todos: '待办事项',
   schedule: '日程管理',
   budget: '预算管理',
+  secrets: '密钥管理',
   notifications: '通知中心',
   settings: '系统设置',
 }

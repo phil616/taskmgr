@@ -821,6 +821,93 @@ func allTools() []mcpToolDef {
 		},
 	}
 
+	// ── 密钥管理工具 ──────────────────────────────────────────────────
+	secretList := mcpToolDef{
+		Name:        "secret_list",
+		Description: "获取密钥列表（不含密钥值），支持按名称、标签、项目筛选。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"name":       str("名称模糊搜索（可选）"),
+				"tag":        str("标签筛选（可选）"),
+				"project_id": str("项目 ID 筛选（可选）"),
+				"page":       num("页码，默认 1"),
+				"page_size":  num("每页数量，默认 20"),
+			},
+		},
+	}
+	secretGet := mcpToolDef{
+		Name:        "secret_get",
+		Description: "获取单个密钥的详细信息（含密钥值）。此操作会被审计记录。",
+		InputSchema: gin.H{
+			"type":       "object",
+			"properties": gin.H{"id": str("密钥 ID（必填）")},
+			"required":   []string{"id"},
+		},
+	}
+	secretGetValue := mcpToolDef{
+		Name:        "secret_get_value",
+		Description: "仅获取密钥的值（明文）。此操作会被审计记录为 value_read。",
+		InputSchema: gin.H{
+			"type":       "object",
+			"properties": gin.H{"id": str("密钥 ID（必填）")},
+			"required":   []string{"id"},
+		},
+	}
+	secretCreate := mcpToolDef{
+		Name:        "secret_create",
+		Description: "创建一个新密钥。密钥名称必须唯一。可关联到项目并添加标签。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"name":        str("密钥名称（必填，唯一）"),
+				"value":       str("密钥值（必填，明文存储）"),
+				"description": str("描述（可选）"),
+				"tags":        arr(gin.H{"type": "string"}, "标签数组（可选）"),
+				"project_id":  str("关联项目 ID（可选）"),
+			},
+			"required": []string{"name", "value"},
+		},
+	}
+	secretUpdate := mcpToolDef{
+		Name:        "secret_update",
+		Description: "更新密钥的名称、值、描述、标签或关联项目。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"id":          str("密钥 ID（必填）"),
+				"name":        str("新名称（可选）"),
+				"value":       str("新密钥值（可选）"),
+				"description": str("新描述（可选）"),
+				"tags":        arr(gin.H{"type": "string"}, "新标签数组（可选）"),
+				"project_id":  str("新关联项目 ID，传空字符串可取消关联（可选）"),
+			},
+			"required": []string{"id"},
+		},
+	}
+	secretDelete := mcpToolDef{
+		Name:        "secret_delete",
+		Description: "删除指定密钥（软删除）。",
+		InputSchema: gin.H{
+			"type":       "object",
+			"properties": gin.H{"id": str("密钥 ID（必填）")},
+			"required":   []string{"id"},
+		},
+	}
+	secretAuditLogs := mcpToolDef{
+		Name:        "secret_audit_logs",
+		Description: "查询密钥的审计日志，记录了每次密钥的访问历史（谁访问的、什么操作、IP 地址等）。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"id":        str("密钥 ID（可选，不填则查询所有密钥的审计日志）"),
+				"action":    str("操作类型筛选：created/read/updated/deleted/value_read/listed（可选）"),
+				"page":      num("页码，默认 1"),
+				"page_size": num("每页数量，默认 20"),
+			},
+		},
+	}
+
 	return []mcpToolDef{
 		generic,
 		// Auth (7)
@@ -844,6 +931,8 @@ func allTools() []mcpToolDef {
 		txList, txGet, txCreate, txUpdate, txDelete,
 		// Stats (1)
 		budgetStats,
+		// Secrets (7)
+		secretList, secretGet, secretGetValue, secretCreate, secretUpdate, secretDelete, secretAuditLogs,
 	}
 }
 
@@ -1153,6 +1242,41 @@ func toolToHTTP(name string, args map[string]any) (*httpCall, error) {
 	case "budget_stats":
 		return &httpCall{method: "GET", path: "/api/v1/budget/stats", query: pickStrings(args, "wallet_id", "start_date", "end_date")}, nil
 
+	// ── Secrets ──
+	case "secret_list":
+		return &httpCall{method: "GET", path: "/api/v1/secrets", query: pickStrings(args, "name", "tag", "project_id", "page", "page_size")}, nil
+	case "secret_get":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "GET", path: "/api/v1/secrets/" + id}, nil
+	case "secret_get_value":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "GET", path: "/api/v1/secrets/" + id + "/value"}, nil
+	case "secret_create":
+		return &httpCall{method: "POST", path: "/api/v1/secrets", body: args}, nil
+	case "secret_update":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "PUT", path: "/api/v1/secrets/" + id, body: omitKeys(args, "id")}, nil
+	case "secret_delete":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "DELETE", path: "/api/v1/secrets/" + id}, nil
+	case "secret_audit_logs":
+		if has("id") && s("id") != "" {
+			return &httpCall{method: "GET", path: "/api/v1/secrets/" + s("id") + "/audit-logs", query: pickStrings(args, "action", "page", "page_size")}, nil
+		}
+		return &httpCall{method: "GET", path: "/api/v1/secret-audit-logs", query: pickStrings(args, "secret_id", "action", "page", "page_size")}, nil
+
 	default:
 		return nil, fmt.Errorf("未知工具名: %s", name)
 	}
@@ -1342,12 +1466,12 @@ func (h *MCPHandler) GetInfo(c *gin.Context) {
 	}{
 		{"认证", nil}, {"计时单元", nil}, {"项目", nil}, {"待办事项", nil},
 		{"待办分组", nil}, {"通知", nil}, {"日程", nil}, {"钱包", nil},
-		{"收支分类", nil}, {"收支记录", nil}, {"统计", nil}, {"通用", nil},
+		{"收支分类", nil}, {"收支记录", nil}, {"统计", nil}, {"密钥管理", nil}, {"通用", nil},
 	}
 	prefix := []string{
 		"auth_", "unit_", "project_", "todo_",
 		"todo_group_", "notification_", "schedule_", "wallet_",
-		"budget_category_", "transaction_", "budget_stats", "backend_request",
+		"budget_category_", "transaction_", "budget_stats", "secret_", "backend_request",
 	}
 
 	for _, t := range tools {
