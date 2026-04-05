@@ -1554,6 +1554,34 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/projects/{id}/budget:
+    get:
+      tags: [Projects]
+      summary: 获取项目预算统计
+      description: 返回指定项目的预算统计信息，包括总收入、总支出、净额、最大预算、剩余预算、使用率和关联交易数。
+      operationId: projectsGetBudgetStats
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: "#/components/parameters/idPath"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ProjectBudgetStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   # ── Wallets ────────────────────────────────────────────────────────
 
   /api/v1/wallets:
@@ -1817,6 +1845,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: project_id
+          in: query
+          description: 项目 ID（筛选某项目关联的收支记录）
+          schema:
+            type: string
         - name: type
           in: query
           schema:
@@ -2007,6 +2040,20 @@ paths:
   # ── MCP ────────────────────────────────────────────────────────────
 
   /mcp:
+    get:
+      tags: [MCP]
+      summary: MCP 端点说明页（HTML）
+      description: |
+        浏览器通过 GET 请求访问时，返回面向人类的 MCP 说明页面（HTML），
+        包含快速配置指南、可用工具列表和接入步骤。
+      operationId: mcpGetInfo
+      responses:
+        "200":
+          description: HTML 说明页
+          content:
+            text/html:
+              schema:
+                type: string
     post:
       tags: [MCP]
       summary: MCP JSON-RPC 端点（AI 智能体接入）
@@ -2079,6 +2126,39 @@ paths:
                         type: string
         "401":
           description: API Token 无效或缺失
+
+  /mcp/config:
+    get:
+      tags: [MCP]
+      summary: 获取 MCP 客户端配置 JSON
+      description: |
+        返回可直接粘贴到 MCP 客户端（Cursor、Claude Desktop 等）的 JSON 配置，
+        包含 `mcpServers` 连接信息和使用步骤说明。
+      operationId: mcpGetConfig
+      responses:
+        "200":
+          description: MCP 客户端配置
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mcpServers:
+                    type: object
+                    description: MCP 服务配置映射
+                  _usage:
+                    type: object
+                    properties:
+                      steps:
+                        type: array
+                        items:
+                          type: string
+                      total_tools:
+                        type: integer
+                      server_version:
+                        type: string
+                      protocol_version:
+                        type: string
 
 components:
   securitySchemes:
@@ -2339,7 +2419,8 @@ components:
           type: string
         new_password:
           type: string
-          minLength: 6
+          minLength: 8
+          maxLength: 72
 
     TokenResponse:
       type: object
@@ -2624,6 +2705,9 @@ components:
           type: string
         sort_order:
           type: integer
+        max_budget:
+          type: number
+          description: 项目最大预算金额（0 表示不限制）
 
     UpdateProjectRequest:
       type: object
@@ -2642,6 +2726,10 @@ components:
           type: string
         sort_order:
           type: integer
+        max_budget:
+          type: number
+          nullable: true
+          description: 项目最大预算金额
 
     ProjectResponse:
       type: object
@@ -2660,6 +2748,9 @@ components:
           type: string
         sort_order:
           type: integer
+        max_budget:
+          type: number
+          description: 项目最大预算金额
         created_at:
           type: string
           format: date-time
@@ -2668,6 +2759,8 @@ components:
           format: date-time
         unit_stats:
           $ref: "#/components/schemas/ProjectUnitStats"
+        budget_stats:
+          $ref: "#/components/schemas/ProjectBudgetStats"
 
     ProjectUnitStats:
       type: object
@@ -2684,6 +2777,32 @@ components:
         total_count:
           type: integer
           format: int64
+
+    ProjectBudgetStats:
+      type: object
+      properties:
+        total_income:
+          type: number
+          description: 项目总收入
+        total_expense:
+          type: number
+          description: 项目总支出
+        net_amount:
+          type: number
+          description: 净额（收入 - 支出）
+        max_budget:
+          type: number
+          description: 项目最大预算额度
+        remaining:
+          type: number
+          description: 剩余预算
+        usage_rate:
+          type: number
+          description: 预算使用率（0~1）
+        tx_count:
+          type: integer
+          format: int64
+          description: 关联交易笔数
 
     CreateTodoRequest:
       type: object
@@ -3171,6 +3290,10 @@ components:
         category_id:
           type: string
           nullable: true
+        project_id:
+          type: string
+          nullable: true
+          description: 关联项目 ID，将此收支记录归属到指定项目
         type:
           type: string
           enum: [income, expense, transfer]
@@ -3199,6 +3322,10 @@ components:
         category_id:
           type: string
           nullable: true
+        project_id:
+          type: string
+          nullable: true
+          description: 关联项目 ID，传空字符串可取消关联
         amount:
           type: number
           minimum: 0
@@ -3230,6 +3357,11 @@ components:
         category_icon:
           type: string
         category_color:
+          type: string
+        project_id:
+          type: string
+          nullable: true
+        project_name:
           type: string
         type:
           type: string
