@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /cygdrive/d/DreamReflexOpenSource/taskmgr ls-tree -r --name-only HEAD)",
+      "Bash(dir:*)",
+      "Bash(cmd /c:*)",
+      "Bash(uv run:*)",
+      "Bash(echo:*)"
+    ]
+  }
+}
