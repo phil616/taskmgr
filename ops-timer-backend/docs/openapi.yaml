@@ -52,6 +52,10 @@ tags:
     description: 待办事项
   - name: TodoGroups
     description: 待办分组
+  - name: Notes
+    description: Markdown 笔记
+  - name: NoteGroups
+    description: 笔记分组
   - name: Notifications
     description: 系统通知
   - name: Schedules
@@ -1190,6 +1194,332 @@ paths:
       tags: [TodoGroups]
       summary: 删除待办分组
       operationId: todoGroupsDelete
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: 删除成功，无响应体
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notes:
+    get:
+      tags: [Notes]
+      summary: 分页查询 Markdown 笔记列表
+      operationId: notesList
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: group_id
+          in: query
+          description: 笔记分组 ID，传 `none` 表示筛选未分组笔记
+          schema:
+            type: string
+        - name: tag
+          in: query
+          description: 标签筛选
+          schema:
+            type: string
+        - name: keyword
+          in: query
+          description: 关键词搜索，会匹配标题、内容、标签和分组名
+          schema:
+            type: string
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccessWithMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/NoteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Notes]
+      summary: 创建 Markdown 笔记
+      operationId: notesCreate
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteRequest"
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NoteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/notes/search:
+    get:
+      tags: [Notes]
+      summary: 全局搜索 Markdown 笔记
+      operationId: notesSearch
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: 搜索关键词，会匹配标题、内容、标签和分组名
+          schema:
+            type: string
+        - name: group_id
+          in: query
+          description: 笔记分组 ID，传 `none` 表示筛选未分组笔记
+          schema:
+            type: string
+        - name: tag
+          in: query
+          description: 标签筛选
+          schema:
+            type: string
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccessWithMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/NoteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/notes/{id}:
+    parameters:
+      - $ref: "#/components/parameters/idPath"
+    get:
+      tags: [Notes]
+      summary: 获取单篇笔记
+      operationId: notesGet
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NoteResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Notes]
+      summary: 更新笔记
+      operationId: notesPut
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNoteRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NoteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Notes]
+      summary: 部分更新笔记
+      operationId: notesPatch
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNoteRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NoteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Notes]
+      summary: 删除笔记
+      operationId: notesDelete
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: 删除成功，无响应体
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/note-groups:
+    get:
+      tags: [NoteGroups]
+      summary: 列出所有笔记分组
+      operationId: noteGroupsList
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/NoteGroupResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [NoteGroups]
+      summary: 创建笔记分组
+      operationId: noteGroupsCreate
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNoteGroupRequest"
+      responses:
+        "201":
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NoteGroupResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/note-groups/{id}:
+    parameters:
+      - $ref: "#/components/parameters/idPath"
+    put:
+      tags: [NoteGroups]
+      summary: 更新笔记分组
+      operationId: noteGroupsPut
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateNoteGroupRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/EnvelopeSuccess"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NoteGroupResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [NoteGroups]
+      summary: 删除笔记分组
+      operationId: noteGroupsDelete
       security:
         - BearerAuth: []
         - ApiKeyAuth: []
@@ -3268,6 +3598,112 @@ components:
         sort_order:
           type: integer
         todo_count:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateNoteRequest:
+      type: object
+      required: [title, content]
+      properties:
+        group_id:
+          type: string
+          nullable: true
+        title:
+          type: string
+          maxLength: 256
+        content:
+          type: string
+          description: Markdown 原始内容
+        tags:
+          type: array
+          items:
+            type: string
+
+    UpdateNoteRequest:
+      type: object
+      properties:
+        group_id:
+          type: string
+          nullable: true
+          description: 传空字符串可取消所属分组
+        title:
+          type: string
+          maxLength: 256
+        content:
+          type: string
+          description: Markdown 原始内容
+        tags:
+          type: array
+          items:
+            type: string
+
+    NoteResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        group_id:
+          type: string
+          nullable: true
+        group_name:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+          description: Markdown 原始内容
+        tags:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateNoteGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        color:
+          type: string
+        sort_order:
+          type: integer
+
+    UpdateNoteGroupRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 64
+        color:
+          type: string
+        sort_order:
+          type: integer
+
+    NoteGroupResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        color:
+          type: string
+        sort_order:
+          type: integer
+        note_count:
           type: integer
           format: int64
         created_at:

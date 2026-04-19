@@ -1,12 +1,13 @@
 # 任务管理器 — 支持MCP的数据管理平台
 
-面向AI智能体的专项任务管理系统，提供倒计时/正计时、项目聚合、TODO待办、通知提醒、日程管理等功能。
+面向AI智能体的专项任务管理系统，提供倒计时/正计时、项目聚合、TODO待办、Markdown 笔记、通知提醒、日程管理等功能。
 
 ## 功能特性
 
 - **计时单元管理**：支持时间型（倒计时/正计时）和数值型（目标计数/累计计数）
 - **项目管理**：将相关计时单元归属到项目中统一管理
 - **TODO待办**：轻量级待办事项管理，支持分组和批量操作
+- **笔记管理**：Markdown 笔记 CRUD、分组、标签与全文关键词搜索
 - **通知提醒**：后台定时扫描，自动生成到期/超期提醒
 - **认证方式**：JWT + API Token 双认证方式
 - **RESTful API**：完整的 REST API，支持脚本和第三方集成
@@ -51,6 +52,29 @@ docker compose up -d
 ```
 
 访问 `http://localhost` 即可使用。
+
+## 构建命令
+
+### 本地构建
+
+**后端：构建可执行文件**
+
+```bash
+cd ops-timer-backend
+go build -o bin/taskmgr-server ./cmd/server
+```
+
+构建产物默认输出到 `ops-timer-backend/bin/taskmgr-server`。
+
+**前端：构建生产静态资源**
+
+```bash
+cd ops-timer-frontend
+npm install
+npm run build
+```
+
+构建产物默认输出到 `ops-timer-frontend/dist/`。
 
 ## 项目结构
 
@@ -105,7 +129,7 @@ curl http://localhost:8080/api/v1/units \
 
 ## MCP 接入（AI 智能体）
 
-后端内置 MCP 服务器（默认 `POST /mcp`），提供 **55 个专用工具**，覆盖全部后端功能。智能体通过一个 MCP 配置即可完全操控所有数据。
+后端内置 MCP 服务器（默认 `POST /mcp`），提供 **80 个专用工具**，覆盖全部后端功能。智能体通过一个 MCP 配置即可完全操控所有数据。
 
 ### 一键获取配置
 
@@ -132,18 +156,21 @@ curl http://localhost:8080/mcp/config
 
 将 `mcpServers` 部分粘贴到你的 MCP 客户端配置中（Cursor Settings → MCP、Claude Desktop `mcp_config.json` 等），替换 `<your-api-token>` 为你的真实 Token 即可。
 
-### 可用工具分类（55 个）
+### 可用工具分类（80 个）
 
 | 模块 | 工具数 | 说明 |
 |------|--------|------|
+| 认证 | 7 | 登录态资料、密码、API Token、SMTP 测试 |
 | 计时单元 | 10 | 完整 CRUD + 状态变更 + 步进/设值 + 日志 + 汇总 |
-| 项目 | 6 | 完整 CRUD + 查看项目下的单元 |
+| 项目 | 7 | 完整 CRUD + 查看项目下的单元 + 项目预算统计 |
 | 待办 | 11 | 完整 CRUD + 状态 + 批量操作 + 分组管理（4 个） |
+| 笔记 | 10 | Markdown 笔记 CRUD + 全局搜索 + 分组管理（4 个） |
 | 通知 | 5 | 列表 + 标记已读 + 全部已读 + 未读数 + 删除 |
 | 日程 | 7 | 完整 CRUD + 关联/移除资源 |
 | 钱包 | 5 | 完整 CRUD + 详情 |
 | 收支分类 | 4 | 完整 CRUD |
 | 收支记录 | 5 | 完整 CRUD + 详情 |
+| 密钥管理 | 7 | 完整 CRUD + 明文读取 + 审计日志 |
 | 预算统计 | 1 | 汇总（按钱包/日期范围） |
 | 通用代理 | 1 | `backend_request`（任意 HTTP 调用兜底） |
 

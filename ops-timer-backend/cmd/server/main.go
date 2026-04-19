@@ -55,6 +55,8 @@ func main() {
 	unitLogRepo := repository.NewUnitLogRepository(db)
 	todoRepo := repository.NewTodoRepository(db)
 	todoGroupRepo := repository.NewTodoGroupRepository(db)
+	noteRepo := repository.NewNoteRepository(db)
+	noteGroupRepo := repository.NewNoteGroupRepository(db)
 	notifRepo := repository.NewNotificationRepository(db)
 	scheduleRepo := repository.NewScheduleRepository(db)
 	walletRepo := repository.NewWalletRepository(db)
@@ -82,6 +84,7 @@ func main() {
 	unitService := service.NewUnitService(unitRepo, unitLogRepo)
 	projectService := service.NewProjectService(projectRepo, unitRepo, txRepo)
 	todoService := service.NewTodoService(todoRepo, todoGroupRepo)
+	noteService := service.NewNoteService(noteRepo, noteGroupRepo)
 	notifService := service.NewNotificationService(notifRepo)
 	scheduleService := service.NewScheduleService(scheduleRepo, projectRepo, unitRepo, todoRepo)
 	budgetService := service.NewBudgetService(walletRepo, categoryRepo, txRepo)
@@ -105,6 +108,7 @@ func main() {
 	unitHandler := handler.NewUnitHandler(unitService)
 	projectHandler := handler.NewProjectHandler(projectService, unitService)
 	todoHandler := handler.NewTodoHandler(todoService)
+	noteHandler := handler.NewNoteHandler(noteService)
 	notifHandler := handler.NewNotificationHandler(notifService)
 	scheduleHandler := handler.NewScheduleHandler(scheduleService)
 	budgetHandler := handler.NewBudgetHandler(budgetService)
@@ -131,6 +135,7 @@ func main() {
 		UnitHandler:     unitHandler,
 		ProjectHandler:  projectHandler,
 		TodoHandler:     todoHandler,
+		NoteHandler:     noteHandler,
 		NotifHandler:    notifHandler,
 		ScheduleHandler: scheduleHandler,
 		BudgetHandler:   budgetHandler,
@@ -211,6 +216,8 @@ func autoMigrate(db *gorm.DB) {
 		&model.UnitLog{},
 		&model.TodoGroup{},
 		&model.Todo{},
+		&model.NoteGroup{},
+		&model.Note{},
 		&model.Notification{},
 		&model.Schedule{},
 		&model.ScheduleResource{},

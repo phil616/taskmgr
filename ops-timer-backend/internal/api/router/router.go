@@ -17,6 +17,7 @@ type Router struct {
 	unitHandler     *handler.UnitHandler
 	projectHandler  *handler.ProjectHandler
 	todoHandler     *handler.TodoHandler
+	noteHandler     *handler.NoteHandler
 	notifHandler    *handler.NotificationHandler
 	scheduleHandler *handler.ScheduleHandler
 	budgetHandler   *handler.BudgetHandler
@@ -34,6 +35,7 @@ type RouterConfig struct {
 	UnitHandler     *handler.UnitHandler
 	ProjectHandler  *handler.ProjectHandler
 	TodoHandler     *handler.TodoHandler
+	NoteHandler     *handler.NoteHandler
 	NotifHandler    *handler.NotificationHandler
 	ScheduleHandler *handler.ScheduleHandler
 	BudgetHandler   *handler.BudgetHandler
@@ -57,6 +59,7 @@ func NewRouter(cfg *RouterConfig) *Router {
 		unitHandler:     cfg.UnitHandler,
 		projectHandler:  cfg.ProjectHandler,
 		todoHandler:     cfg.TodoHandler,
+		noteHandler:     cfg.NoteHandler,
 		notifHandler:    cfg.NotifHandler,
 		scheduleHandler: cfg.ScheduleHandler,
 		budgetHandler:   cfg.BudgetHandler,
@@ -145,6 +148,21 @@ func (r *Router) Setup() *gin.Engine {
 	protected.POST("/todo-groups", r.todoHandler.CreateGroup)
 	protected.PUT("/todo-groups/:id", r.todoHandler.UpdateGroup)
 	protected.DELETE("/todo-groups/:id", r.todoHandler.DeleteGroup)
+
+	// Notes
+	protected.GET("/notes", r.noteHandler.List)
+	protected.POST("/notes", r.noteHandler.Create)
+	protected.GET("/notes/search", r.noteHandler.Search)
+	protected.GET("/notes/:id", r.noteHandler.Get)
+	protected.PUT("/notes/:id", r.noteHandler.Update)
+	protected.PATCH("/notes/:id", r.noteHandler.Update)
+	protected.DELETE("/notes/:id", r.noteHandler.Delete)
+
+	// Note Groups
+	protected.GET("/note-groups", r.noteHandler.ListGroups)
+	protected.POST("/note-groups", r.noteHandler.CreateGroup)
+	protected.PUT("/note-groups/:id", r.noteHandler.UpdateGroup)
+	protected.DELETE("/note-groups/:id", r.noteHandler.DeleteGroup)
 
 	// Notifications
 	protected.GET("/notifications", r.notifHandler.List)

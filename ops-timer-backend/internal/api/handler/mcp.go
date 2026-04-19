@@ -479,6 +479,125 @@ func allTools() []mcpToolDef {
 		},
 	}
 
+	// ── 笔记工具（完整 CRUD + 分组 + 搜索）────────────────────────────────
+	noteList := mcpToolDef{
+		Name:        "note_list",
+		Description: "查询 Markdown 笔记列表，支持按分组、标签和关键词筛选。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"group_id":  str("分组 ID（可选，传 none 表示未分组）"),
+				"tag":       str("标签筛选（可选）"),
+				"keyword":   str("关键词搜索（可选，会匹配标题、内容、标签和分组名）"),
+				"page":      num("页码，默认 1"),
+				"page_size": num("每页数量，默认 20"),
+			},
+		},
+	}
+	noteSearch := mcpToolDef{
+		Name:        "note_search",
+		Description: "全局搜索 Markdown 笔记内容，按标题、内容、标签和分组名匹配关键词。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"q":         str("搜索关键词（必填）"),
+				"group_id":  str("分组 ID（可选，传 none 表示未分组）"),
+				"tag":       str("标签筛选（可选）"),
+				"page":      num("页码，默认 1"),
+				"page_size": num("每页数量，默认 20"),
+			},
+			"required": []string{"q"},
+		},
+	}
+	noteGet := mcpToolDef{
+		Name:        "note_get",
+		Description: "获取单篇 Markdown 笔记的详细信息。",
+		InputSchema: gin.H{
+			"type":       "object",
+			"properties": gin.H{"id": str("笔记 ID（必填）")},
+			"required":   []string{"id"},
+		},
+	}
+	noteCreate := mcpToolDef{
+		Name:        "note_create",
+		Description: "创建一篇新的 Markdown 笔记。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"title":    str("笔记标题（必填）"),
+				"content":  str("Markdown 内容（必填）"),
+				"group_id": str("所属分组 ID（可选）"),
+				"tags":     arr(gin.H{"type": "string"}, "标签数组（可选）"),
+			},
+			"required": []string{"title", "content"},
+		},
+	}
+	noteUpdate := mcpToolDef{
+		Name:        "note_update",
+		Description: "更新笔记的标题、Markdown 内容、标签或所属分组。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"id":       str("笔记 ID（必填）"),
+				"title":    str("新标题（可选）"),
+				"content":  str("新 Markdown 内容（可选）"),
+				"group_id": str("新分组 ID，传空字符串可取消分组（可选）"),
+				"tags":     arr(gin.H{"type": "string"}, "新标签数组（可选）"),
+			},
+			"required": []string{"id"},
+		},
+	}
+	noteDelete := mcpToolDef{
+		Name:        "note_delete",
+		Description: "删除指定笔记。",
+		InputSchema: gin.H{
+			"type":       "object",
+			"properties": gin.H{"id": str("笔记 ID（必填）")},
+			"required":   []string{"id"},
+		},
+	}
+	noteGroupList := mcpToolDef{
+		Name:        "note_group_list",
+		Description: "获取所有笔记分组列表。",
+		InputSchema: gin.H{"type": "object", "properties": gin.H{}},
+	}
+	noteGroupCreate := mcpToolDef{
+		Name:        "note_group_create",
+		Description: "创建新的笔记分组。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"name":       str("分组名称（必填）"),
+				"color":      str("分组颜色 HEX（可选）"),
+				"sort_order": num("排序值（可选）"),
+			},
+			"required": []string{"name"},
+		},
+	}
+	noteGroupUpdate := mcpToolDef{
+		Name:        "note_group_update",
+		Description: "更新笔记分组信息。",
+		InputSchema: gin.H{
+			"type": "object",
+			"properties": gin.H{
+				"id":         str("分组 ID（必填）"),
+				"name":       str("新名称（可选）"),
+				"color":      str("新颜色（可选）"),
+				"sort_order": num("新排序值（可选）"),
+			},
+			"required": []string{"id"},
+		},
+	}
+	noteGroupDelete := mcpToolDef{
+		Name:        "note_group_delete",
+		Description: "删除笔记分组（不会删除分组内的笔记，笔记将移至未分组）。",
+		InputSchema: gin.H{
+			"type":       "object",
+			"properties": gin.H{"id": str("分组 ID（必填）")},
+			"required":   []string{"id"},
+		},
+	}
+
 	// ── 通知工具 ──────────────────────────────────────────────────────
 	notificationList := mcpToolDef{
 		Name:        "notification_list",
@@ -919,6 +1038,9 @@ func allTools() []mcpToolDef {
 		// Todos (11)
 		todoList, todoGet, todoCreate, todoUpdate, todoDelete, todoUpdateStatus, todoBatch,
 		todoGroupList, todoGroupCreate, todoGroupUpdate, todoGroupDelete,
+		// Notes (10)
+		noteList, noteSearch, noteGet, noteCreate, noteUpdate, noteDelete,
+		noteGroupList, noteGroupCreate, noteGroupUpdate, noteGroupDelete,
 		// Notifications (5)
 		notificationList, notificationMarkRead, notificationMarkAllRead, notificationUnreadCount, notificationDelete,
 		// Schedules (7)
@@ -1111,6 +1233,50 @@ func toolToHTTP(name string, args map[string]any) (*httpCall, error) {
 			return nil, err
 		}
 		return &httpCall{method: "DELETE", path: "/api/v1/todo-groups/" + id}, nil
+
+	// ── Notes ──
+	case "note_list":
+		return &httpCall{method: "GET", path: "/api/v1/notes", query: pickStrings(args, "group_id", "tag", "keyword", "page", "page_size")}, nil
+	case "note_search":
+		return &httpCall{method: "GET", path: "/api/v1/notes/search", query: pickStrings(args, "q", "group_id", "tag", "page", "page_size")}, nil
+	case "note_get":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "GET", path: "/api/v1/notes/" + id}, nil
+	case "note_create":
+		return &httpCall{method: "POST", path: "/api/v1/notes", body: args}, nil
+	case "note_update":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "PUT", path: "/api/v1/notes/" + id, body: omitKeys(args, "id")}, nil
+	case "note_delete":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "DELETE", path: "/api/v1/notes/" + id}, nil
+
+	// ── Note Groups ──
+	case "note_group_list":
+		return &httpCall{method: "GET", path: "/api/v1/note-groups"}, nil
+	case "note_group_create":
+		return &httpCall{method: "POST", path: "/api/v1/note-groups", body: args}, nil
+	case "note_group_update":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "PUT", path: "/api/v1/note-groups/" + id, body: omitKeys(args, "id")}, nil
+	case "note_group_delete":
+		id, err := requireID()
+		if err != nil {
+			return nil, err
+		}
+		return &httpCall{method: "DELETE", path: "/api/v1/note-groups/" + id}, nil
 
 	// ── Notifications ──
 	case "notification_list":
@@ -1441,8 +1607,8 @@ func (h *MCPHandler) GetConfig(c *gin.Context) {
 				"2. 将上方 JSON 中的 <your-api-token> 替换为你的真实 Token",
 				"3. 将 mcpServers 部分粘贴到你的 MCP 客户端配置文件中（如 Cursor Settings → MCP、Claude Desktop mcp_config.json 等）",
 			},
-			"total_tools": len(allTools()),
-			"server_version": h.serverVer,
+			"total_tools":      len(allTools()),
+			"server_version":   h.serverVer,
 			"protocol_version": mcpProtocolVersion,
 		},
 	})
@@ -1465,12 +1631,12 @@ func (h *MCPHandler) GetInfo(c *gin.Context) {
 		Names []string
 	}{
 		{"认证", nil}, {"计时单元", nil}, {"项目", nil}, {"待办事项", nil},
-		{"待办分组", nil}, {"通知", nil}, {"日程", nil}, {"钱包", nil},
+		{"待办分组", nil}, {"笔记", nil}, {"笔记分组", nil}, {"通知", nil}, {"日程", nil}, {"钱包", nil},
 		{"收支分类", nil}, {"收支记录", nil}, {"统计", nil}, {"密钥管理", nil}, {"通用", nil},
 	}
 	prefix := []string{
 		"auth_", "unit_", "project_", "todo_",
-		"todo_group_", "notification_", "schedule_", "wallet_",
+		"todo_group_", "note_", "note_group_", "notification_", "schedule_", "wallet_",
 		"budget_category_", "transaction_", "budget_stats", "secret_", "backend_request",
 	}
 

@@ -154,6 +154,57 @@ export interface TodoGroup {
   updated_at: string
 }
 
+export interface Note {
+  id: string
+  group_id: string | null
+  group_name?: string
+  title: string
+  content: string
+  tags: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface NoteGroup {
+  id: string
+  name: string
+  color: string
+  sort_order: number
+  note_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateNoteRequest {
+  group_id?: string | null
+  title: string
+  content: string
+  tags?: string[]
+}
+
+export interface UpdateNoteRequest {
+  group_id?: string | null
+  title?: string
+  content?: string
+  tags?: string[]
+}
+
+export interface NoteQueryParams {
+  group_id?: string
+  tag?: string
+  keyword?: string
+  page?: number
+  page_size?: number
+}
+
+export interface NoteSearchQueryParams {
+  q: string
+  group_id?: string
+  tag?: string
+  page?: number
+  page_size?: number
+}
+
 export interface Notification {
   id: string
   unit_id: string
@@ -455,4 +506,3 @@ export interface SecretAuditLog {
   detail: string
   created_at: string
 }
-
