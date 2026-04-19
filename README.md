@@ -23,6 +23,12 @@
 
 ## 快速开始
 
+### For Ops:
+
+indev: https://cnb.cool/greenshadecapital/dreamreflex/devops-taskmgr
+ 
+OpenSource: https://github.com/phil616/taskmgr
+
 ### 开发模式
 
 **后端：**
