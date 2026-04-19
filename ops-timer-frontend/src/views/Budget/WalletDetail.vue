@@ -189,7 +189,7 @@ import { ref, computed, watch } from 'vue'
 import { transactionApi, budgetStatApi, walletApi } from '@/api/budget'
 import type { Transaction, Wallet, WalletStatResponse } from '@/types'
 import TransactionDialog from './TransactionDialog.vue'
-import dayjs from 'dayjs'
+import { APP_TIMEZONE, dayjs, parseAppTime } from '@/utils/time'
 
 const props = defineProps<{
   modelValue: boolean
@@ -209,8 +209,8 @@ const walletDetail = ref<Wallet | null>(null)
 const allWallets = ref<Wallet[]>([])
 
 const filterType = ref('')
-const filterStart = ref(dayjs().startOf('month').format('YYYY-MM-DD'))
-const filterEnd = ref(dayjs().endOf('month').format('YYYY-MM-DD'))
+const filterStart = ref(dayjs.tz(APP_TIMEZONE).startOf('month').format('YYYY-MM-DD'))
+const filterEnd = ref(dayjs.tz(APP_TIMEZONE).endOf('month').format('YYYY-MM-DD'))
 const filterKeyword = ref('')
 
 const txDialogOpen = ref(false)
@@ -219,7 +219,8 @@ const editingTx = ref<Transaction | null>(null)
 const groupedTx = computed(() => {
   const map = new Map<string, { date: string; items: Transaction[]; income: number; expense: number }>()
   for (const tx of transactions.value) {
-    const d = dayjs(tx.transaction_at).format('YYYY-MM-DD')
+    const d = parseAppTime(tx.transaction_at)?.format('YYYY-MM-DD')
+    if (!d) continue
     if (!map.has(d)) map.set(d, { date: d, items: [], income: 0, expense: 0 })
     const g = map.get(d)!
     g.items.push(tx)
@@ -244,14 +245,15 @@ function formatAmount(n: number) {
 }
 
 function formatGroupDate(d: string) {
-  const day = dayjs(d)
-  const isToday = day.isSame(dayjs(), 'day')
+  const day = parseAppTime(d)
+  if (!day) return d
+  const isToday = day.isSame(dayjs.tz(APP_TIMEZONE), 'day')
   const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day.day()]
   return `${day.format('M月D日')} ${weekday}${isToday ? ' (今天)' : ''}`
 }
 
 function formatTime(dt: string) {
-  return dayjs(dt).format('HH:mm')
+  return parseAppTime(dt)?.format('HH:mm') || '--:--'
 }
 
 function walletTypeLabel(type: string) {

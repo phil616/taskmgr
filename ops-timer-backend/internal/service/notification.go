@@ -4,6 +4,7 @@ import (
 	"errors"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 
 	"github.com/google/uuid"
@@ -80,8 +81,8 @@ func (s *NotificationService) toResponse(n *model.Notification) dto.Notification
 		Level:       n.Level,
 		Message:     n.Message,
 		IsRead:      n.IsRead,
-		TriggeredAt: n.TriggeredAt,
-		ReadAt:      n.ReadAt,
+		TriggeredAt: timeutil.Normalize(n.TriggeredAt),
+		ReadAt:      timeutil.NormalizePtr(n.ReadAt),
 	}
 	if n.Unit != nil {
 		resp.UnitTitle = n.Unit.Title

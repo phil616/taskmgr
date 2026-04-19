@@ -6,6 +6,7 @@ import (
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
 	"ops-timer-backend/internal/pkg/auth"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 	"time"
 
@@ -196,8 +197,8 @@ func (s *AuthService) toUserResponse(user *model.User) dto.UserResponse {
 		Username:    user.Username,
 		DisplayName: user.DisplayName,
 		Email:       user.Email,
-		CreatedAt:   user.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   user.UpdatedAt.Format(time.RFC3339),
+		CreatedAt:   timeutil.Normalize(user.CreatedAt).Format(time.RFC3339),
+		UpdatedAt:   timeutil.Normalize(user.UpdatedAt).Format(time.RFC3339),
 	}
 }
 

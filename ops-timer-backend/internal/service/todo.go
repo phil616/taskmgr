@@ -241,11 +241,11 @@ func (s *TodoService) toResponse(todo *model.Todo) *dto.TodoResponse {
 		Description: todo.Description,
 		Status:      todo.Status,
 		Priority:    todo.Priority,
-		DueDate:     todo.DueDate,
+		DueDate:     timeutil.NormalizePtr(todo.DueDate),
 		SortOrder:   todo.SortOrder,
-		CompletedAt: todo.CompletedAt,
-		CreatedAt:   todo.CreatedAt,
-		UpdatedAt:   todo.UpdatedAt,
+		CompletedAt: timeutil.NormalizePtr(todo.CompletedAt),
+		CreatedAt:   timeutil.Normalize(todo.CreatedAt),
+		UpdatedAt:   timeutil.Normalize(todo.UpdatedAt),
 	}
 }
 
@@ -256,7 +256,7 @@ func (s *TodoService) toGroupResponse(group *model.TodoGroup) *dto.TodoGroupResp
 		Color:     group.Color,
 		SortOrder: group.SortOrder,
 		TodoCount: group.TodoCount,
-		CreatedAt: group.CreatedAt,
-		UpdatedAt: group.UpdatedAt,
+		CreatedAt: timeutil.Normalize(group.CreatedAt),
+		UpdatedAt: timeutil.Normalize(group.UpdatedAt),
 	}
 }

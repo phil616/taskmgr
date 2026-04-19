@@ -109,7 +109,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import type { Unit } from '@/types'
 import {
   formatDuration, formatDate, getTimeColor, getPriorityColor, getPriorityLabel,
-  getStatusColor, getStatusLabel, getUnitTypeLabel, getUnitTypeIcon,
+  getStatusColor, getStatusLabel, getUnitTypeLabel, getUnitTypeIcon, parseAppTime,
 } from '@/utils/time'
 
 const props = defineProps<{ unit: Unit }>()
@@ -125,8 +125,9 @@ const isCountdown = computed(() =>
 // 倒计时进度：已消耗时间占总时长的百分比，随 now 实时更新
 const timeCountdownProgress = computed(() => {
   if (!props.unit.target_time) return 0
-  const targetTs = new Date(props.unit.target_time).getTime()
-  const createdTs = new Date(props.unit.created_at).getTime()
+  const targetTs = parseAppTime(props.unit.target_time)?.valueOf()
+  const createdTs = parseAppTime(props.unit.created_at)?.valueOf()
+  if (targetTs === undefined || createdTs === undefined) return 0
   const totalMs = targetTs - createdTs
   if (totalMs <= 0) return 100
   const elapsedMs = now.value - createdTs

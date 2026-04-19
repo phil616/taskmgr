@@ -4,6 +4,7 @@ import (
 	"errors"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 
 	"github.com/google/uuid"
@@ -15,9 +16,9 @@ var (
 )
 
 type SecretService struct {
-	secretRepo   *repository.SecretRepository
-	auditRepo    *repository.SecretAuditLogRepository
-	projectRepo  *repository.ProjectRepository
+	secretRepo  *repository.SecretRepository
+	auditRepo   *repository.SecretAuditLogRepository
+	projectRepo *repository.ProjectRepository
 }
 
 func NewSecretService(
@@ -181,7 +182,7 @@ func (s *SecretService) ListAuditLogs(params *dto.SecretAuditQueryParams) ([]dto
 			IPAddress: l.IPAddress,
 			UserAgent: l.UserAgent,
 			Detail:    l.Detail,
-			CreatedAt: l.CreatedAt,
+			CreatedAt: timeutil.Normalize(l.CreatedAt),
 		}
 	}
 	return responses, total, nil
@@ -209,8 +210,8 @@ func (s *SecretService) toResponse(secret *model.Secret) *dto.SecretResponse {
 		Description: secret.Description,
 		Tags:        secret.Tags,
 		ProjectID:   secret.ProjectID,
-		CreatedAt:   secret.CreatedAt,
-		UpdatedAt:   secret.UpdatedAt,
+		CreatedAt:   timeutil.Normalize(secret.CreatedAt),
+		UpdatedAt:   timeutil.Normalize(secret.UpdatedAt),
 	}
 	if secret.Project != nil {
 		resp.ProjectName = secret.Project.Title
@@ -228,8 +229,8 @@ func (s *SecretService) toBriefResponse(secret *model.Secret) *dto.SecretBriefRe
 		Description: secret.Description,
 		Tags:        secret.Tags,
 		ProjectID:   secret.ProjectID,
-		CreatedAt:   secret.CreatedAt,
-		UpdatedAt:   secret.UpdatedAt,
+		CreatedAt:   timeutil.Normalize(secret.CreatedAt),
+		UpdatedAt:   timeutil.Normalize(secret.UpdatedAt),
 	}
 	if secret.Project != nil {
 		resp.ProjectName = secret.Project.Title

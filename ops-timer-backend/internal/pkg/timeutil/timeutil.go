@@ -34,6 +34,21 @@ func Now() time.Time {
 	return time.Now().In(location)
 }
 
+func Normalize(t time.Time) time.Time {
+	if t.IsZero() {
+		return t
+	}
+	return t.In(location)
+}
+
+func NormalizePtr(t *time.Time) *time.Time {
+	if t == nil {
+		return nil
+	}
+	normalized := Normalize(*t)
+	return &normalized
+}
+
 func StartOfDay(t time.Time) time.Time {
 	tt := t.In(location)
 	return time.Date(tt.Year(), tt.Month(), tt.Day(), 0, 0, 0, 0, location)

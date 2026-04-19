@@ -504,8 +504,8 @@ func (s *BudgetService) walletToResponse(w *model.Wallet) *dto.WalletResponse {
 		Description: w.Description,
 		IsDefault:   w.IsDefault,
 		SortOrder:   w.SortOrder,
-		CreatedAt:   w.CreatedAt,
-		UpdatedAt:   w.UpdatedAt,
+		CreatedAt:   timeutil.Normalize(w.CreatedAt),
+		UpdatedAt:   timeutil.Normalize(w.UpdatedAt),
 	}
 }
 
@@ -518,8 +518,8 @@ func (s *BudgetService) categoryToResponse(c *model.BudgetCategory) *dto.Categor
 		Icon:      c.Icon,
 		SortOrder: c.SortOrder,
 		IsSystem:  c.IsSystem,
-		CreatedAt: c.CreatedAt,
-		UpdatedAt: c.UpdatedAt,
+		CreatedAt: timeutil.Normalize(c.CreatedAt),
+		UpdatedAt: timeutil.Normalize(c.UpdatedAt),
 	}
 }
 
@@ -537,9 +537,9 @@ func (s *BudgetService) txToResponse(t *model.Transaction, wallet *model.Wallet)
 		Amount:        t.Amount,
 		Note:          t.Note,
 		Tags:          tags,
-		TransactionAt: t.TransactionAt,
+		TransactionAt: timeutil.Normalize(t.TransactionAt),
 		ToWalletID:    t.ToWalletID,
-		CreatedAt:     t.CreatedAt,
+		CreatedAt:     timeutil.Normalize(t.CreatedAt),
 	}
 	if wallet != nil {
 		resp.WalletName = wallet.Name

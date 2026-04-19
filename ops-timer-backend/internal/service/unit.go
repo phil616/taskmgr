@@ -392,8 +392,8 @@ func (s *UnitService) toResponse(unit *model.Unit) *dto.UnitResponse {
 		Priority:    unit.Priority,
 		Tags:        []string(unit.Tags),
 		Color:       unit.Color,
-		CreatedAt:   unit.CreatedAt,
-		UpdatedAt:   unit.UpdatedAt,
+		CreatedAt:   timeutil.Normalize(unit.CreatedAt),
+		UpdatedAt:   timeutil.Normalize(unit.UpdatedAt),
 	}
 
 	if resp.Tags == nil {
@@ -402,7 +402,7 @@ func (s *UnitService) toResponse(unit *model.Unit) *dto.UnitResponse {
 
 	switch unit.Type {
 	case model.UnitTypeTimeCountdown:
-		resp.TargetTime = unit.TargetTime
+		resp.TargetTime = timeutil.NormalizePtr(unit.TargetTime)
 		resp.DisplayUnit = unit.DisplayUnit
 		resp.RemindBeforeDays = []int(unit.RemindBeforeDays)
 		if unit.TargetTime != nil {
@@ -410,7 +410,7 @@ func (s *UnitService) toResponse(unit *model.Unit) *dto.UnitResponse {
 			resp.RemainingSeconds = &remaining
 		}
 	case model.UnitTypeTimeCountup:
-		resp.StartTime = unit.StartTime
+		resp.StartTime = timeutil.NormalizePtr(unit.StartTime)
 		resp.DisplayUnit = unit.DisplayUnit
 		resp.RemindAfterDays = []int(unit.RemindAfterDays)
 		if unit.StartTime != nil {

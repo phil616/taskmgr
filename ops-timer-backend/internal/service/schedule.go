@@ -248,18 +248,18 @@ func (s *ScheduleService) toResponse(m *model.Schedule) *dto.ScheduleResponse {
 		ID:             m.ID,
 		Title:          m.Title,
 		Description:    m.Description,
-		StartTime:      m.StartTime,
-		EndTime:        m.EndTime,
+		StartTime:      timeutil.Normalize(m.StartTime),
+		EndTime:        timeutil.Normalize(m.EndTime),
 		AllDay:         m.AllDay,
 		Color:          m.Color,
 		Location:       m.Location,
 		Status:         m.Status,
 		RecurrenceType: m.RecurrenceType,
-		RecurrenceEnd:  m.RecurrenceEnd,
+		RecurrenceEnd:  timeutil.NormalizePtr(m.RecurrenceEnd),
 		Tags:           tags,
 		Resources:      []dto.ScheduleResourceResponse{},
-		CreatedAt:      m.CreatedAt,
-		UpdatedAt:      m.UpdatedAt,
+		CreatedAt:      timeutil.Normalize(m.CreatedAt),
+		UpdatedAt:      timeutil.Normalize(m.UpdatedAt),
 	}
 }
 
@@ -270,7 +270,7 @@ func (s *ScheduleService) resourceToResponse(r *model.ScheduleResource) *dto.Sch
 		ResourceType: r.ResourceType,
 		ResourceID:   r.ResourceID,
 		Note:         r.Note,
-		CreatedAt:    r.CreatedAt,
+		CreatedAt:    timeutil.Normalize(r.CreatedAt),
 	}
 }
 

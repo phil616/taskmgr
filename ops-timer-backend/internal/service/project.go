@@ -4,6 +4,7 @@ import (
 	"errors"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 
 	"github.com/google/uuid"
@@ -156,8 +157,8 @@ func (s *ProjectService) toResponse(project *model.Project, withStats bool) *dto
 		Icon:        project.Icon,
 		SortOrder:   project.SortOrder,
 		MaxBudget:   project.MaxBudget,
-		CreatedAt:   project.CreatedAt,
-		UpdatedAt:   project.UpdatedAt,
+		CreatedAt:   timeutil.Normalize(project.CreatedAt),
+		UpdatedAt:   timeutil.Normalize(project.UpdatedAt),
 	}
 
 	if withStats {

@@ -143,7 +143,7 @@
             <span v-if="tx.note" class="text-medium-emphasis text-body-2 ml-2">{{ tx.note }}</span>
           </v-list-item-title>
           <v-list-item-subtitle>
-            {{ dayjs(tx.transaction_at).format('YYYY-MM-DD HH:mm') }}
+            {{ formatDateTime(tx.transaction_at) }}
             <span v-if="tx.wallet_name" class="ml-1">· {{ tx.wallet_name }}</span>
           </v-list-item-subtitle>
           <template #append>
@@ -383,7 +383,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
-import dayjs from 'dayjs'
 import type { Project, Unit, ProjectBudgetStats, Transaction, Wallet } from '@/types'
 import { projectApi } from '@/api/projects'
 import { unitApi } from '@/api/units'
@@ -391,7 +390,7 @@ import { walletApi, transactionApi } from '@/api/budget'
 import TransactionDialog from '@/views/Budget/TransactionDialog.vue'
 import {
   getStatusColor, getStatusLabel, getPriorityColor, getPriorityLabel,
-  getUnitTypeLabel, formatDuration,
+  getUnitTypeLabel, formatDuration, formatDateTime,
 } from '@/utils/time'
 
 const route = useRoute()

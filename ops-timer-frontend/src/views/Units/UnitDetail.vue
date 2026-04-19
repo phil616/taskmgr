@@ -171,7 +171,7 @@ import 'md-editor-v3/lib/preview.css'
 import type { Unit, UnitLog } from '@/types'
 import { unitApi } from '@/api/units'
 import {
-  formatDuration, formatDateTime, getTimeColor, getStatusColor, getStatusLabel,
+  formatDuration, formatDateTime, getTimeColor, getStatusColor, getStatusLabel, parseAppTime,
   getPriorityColor, getPriorityLabel, getUnitTypeLabel, getUnitTypeIcon,
 } from '@/utils/time'
 
@@ -203,8 +203,9 @@ const displayCountup = computed(() => {
 // 倒计时进度：已消耗时间占总时长的百分比
 const timeCountdownProgress = computed(() => {
   if (!unit.value?.target_time) return 0
-  const targetTs = new Date(unit.value.target_time).getTime()
-  const createdTs = new Date(unit.value.created_at).getTime()
+  const targetTs = parseAppTime(unit.value.target_time)?.valueOf()
+  const createdTs = parseAppTime(unit.value.created_at)?.valueOf()
+  if (targetTs === undefined || createdTs === undefined) return 0
   const totalMs = targetTs - createdTs
   if (totalMs <= 0) return 100
   const elapsedMs = now.value - createdTs

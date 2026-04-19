@@ -21,13 +21,24 @@ const localDateTimePattern = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/
 
 export function parseAppTime(date: string | undefined) {
   if (!date) return null
-  if (dateOnlyPattern.test(date)) return dayjs.tz(date, 'YYYY-MM-DD', APP_TIMEZONE)
-  if (localDateTimePattern.test(date)) {
-    const normalized = date.replace(' ', 'T')
-    const format = normalized.length === 16 ? 'YYYY-MM-DDTHH:mm' : 'YYYY-MM-DDTHH:mm:ss'
-    return dayjs.tz(normalized, format, APP_TIMEZONE)
+  const raw = date.trim()
+  if (!raw || raw === 'null' || raw === 'undefined' || raw === 'Invalid Date') return null
+  try {
+    if (dateOnlyPattern.test(raw)) {
+      const parsed = dayjs.tz(raw, 'YYYY-MM-DD', APP_TIMEZONE)
+      return parsed.isValid() ? parsed : null
+    }
+    if (localDateTimePattern.test(raw)) {
+      const normalized = raw.replace(' ', 'T')
+      const format = normalized.length === 16 ? 'YYYY-MM-DDTHH:mm' : 'YYYY-MM-DDTHH:mm:ss'
+      const parsed = dayjs.tz(normalized, format, APP_TIMEZONE)
+      return parsed.isValid() ? parsed : null
+    }
+    const parsed = dayjs(raw).tz(APP_TIMEZONE)
+    return parsed.isValid() ? parsed : null
+  } catch {
+    return null
   }
-  return dayjs(date).tz(APP_TIMEZONE)
 }
 
 export function formatDate(date: string | undefined): string {
@@ -50,12 +61,14 @@ export function toDateTimeInputValue(date: string | undefined): string {
 
 export function toApiDateTime(dateTimeInput: string | undefined): string {
   if (!dateTimeInput) return ''
-  return dayjs.tz(dateTimeInput, 'YYYY-MM-DDTHH:mm', APP_TIMEZONE).format('YYYY-MM-DDTHH:mm:ssZ')
+  const parsed = dayjs.tz(dateTimeInput, 'YYYY-MM-DDTHH:mm', APP_TIMEZONE)
+  return parsed.isValid() ? parsed.format('YYYY-MM-DDTHH:mm:ssZ') : ''
 }
 
 export function toApiDateStart(dateInput: string | undefined): string {
   if (!dateInput) return ''
-  return dayjs.tz(`${dateInput}T00:00:00`, 'YYYY-MM-DDTHH:mm:ss', APP_TIMEZONE).format('YYYY-MM-DDTHH:mm:ssZ')
+  const parsed = dayjs.tz(`${dateInput}T00:00:00`, 'YYYY-MM-DDTHH:mm:ss', APP_TIMEZONE)
+  return parsed.isValid() ? parsed.format('YYYY-MM-DDTHH:mm:ssZ') : ''
 }
 
 export function formatDuration(seconds: number): string {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 
 	"github.com/google/uuid"
@@ -203,8 +204,8 @@ func (s *NoteService) toResponse(note *model.Note) *dto.NoteResponse {
 		Title:     note.Title,
 		Content:   note.Content,
 		Tags:      []string(note.Tags),
-		CreatedAt: note.CreatedAt,
-		UpdatedAt: note.UpdatedAt,
+		CreatedAt: timeutil.Normalize(note.CreatedAt),
+		UpdatedAt: timeutil.Normalize(note.UpdatedAt),
 	}
 	if note.Group != nil {
 		resp.GroupName = note.Group.Name
@@ -222,8 +223,8 @@ func (s *NoteService) toGroupResponse(group *model.NoteGroup) *dto.NoteGroupResp
 		Color:     group.Color,
 		SortOrder: group.SortOrder,
 		NoteCount: group.NoteCount,
-		CreatedAt: group.CreatedAt,
-		UpdatedAt: group.UpdatedAt,
+		CreatedAt: timeutil.Normalize(group.CreatedAt),
+		UpdatedAt: timeutil.Normalize(group.UpdatedAt),
 	}
 }
 
