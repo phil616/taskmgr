@@ -55,7 +55,7 @@ main:
       imports: https://cnb.cool/greenshadecapital/dreamreflex/devops-server-secrets/-/blob/main/s2-server.yml
       stages:
         - name: docker login
-          script: docker login -u ${CNB_TOKEN_USER_NAME} -p "${CNB_TOKEN}" ${CNB_DOCKER_REGISTRY}
+          script: docker login -u ${CNB_TOKEN_USER_NAME} -p "${DEVOPS_TASKMGR_CNB_DEPLOY_TOKEN}" ${CNB_DOCKER_REGISTRY}
 
         - name: docker build
           script: |
