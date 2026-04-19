@@ -219,7 +219,7 @@ const selectedSchedule = ref<Schedule | null>(null)
 const schedules = ref<Schedule[]>([])
 
 // 当前查阅的月份，默认本月 1 号
-const currentDate = ref(dayjs.tz(APP_TIMEZONE).startOf('month'))
+const currentDate = ref(dayjs().tz(APP_TIMEZONE).startOf('month'))
 
 const currentMonthLabel = computed(() => currentDate.value.format('YYYY年 MM月'))
 
@@ -252,7 +252,7 @@ function nextMonth() {
 }
 
 function goToday() {
-  currentDate.value = dayjs.tz(APP_TIMEZONE).startOf('month')
+  currentDate.value = dayjs().tz(APP_TIMEZONE).startOf('month')
   fetchSchedules()
 }
 
@@ -278,7 +278,7 @@ async function fetchSchedules() {
 
 function openCreateDialog() {
   editingSchedule.value = null
-  const now = dayjs.tz(APP_TIMEZONE)
+  const now = dayjs().tz(APP_TIMEZONE)
   // 默认创建一个1小时的日程
   newEventStartTime.value = now.startOf('hour').format('YYYY-MM-DDTHH:mm')
   newEventEndTime.value = now.startOf('hour').add(1, 'hour').format('YYYY-MM-DDTHH:mm')
@@ -315,7 +315,7 @@ function onScheduleDeleted() {
 function formatGroupDate(dateStr: string) {
   const d = parseAppTime(dateStr)
   if (!d) return dateStr
-  const isToday = d.isSame(dayjs.tz(APP_TIMEZONE), 'day')
+  const isToday = d.isSame(dayjs().tz(APP_TIMEZONE), 'day')
   const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.day()]
   return `${d.format('M月D日')} ${weekday}${isToday ? ' (今天)' : ''}`
 }

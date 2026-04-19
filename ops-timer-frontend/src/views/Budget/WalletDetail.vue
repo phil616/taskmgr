@@ -209,8 +209,8 @@ const walletDetail = ref<Wallet | null>(null)
 const allWallets = ref<Wallet[]>([])
 
 const filterType = ref('')
-const filterStart = ref(dayjs.tz(APP_TIMEZONE).startOf('month').format('YYYY-MM-DD'))
-const filterEnd = ref(dayjs.tz(APP_TIMEZONE).endOf('month').format('YYYY-MM-DD'))
+const filterStart = ref(dayjs().tz(APP_TIMEZONE).startOf('month').format('YYYY-MM-DD'))
+const filterEnd = ref(dayjs().tz(APP_TIMEZONE).endOf('month').format('YYYY-MM-DD'))
 const filterKeyword = ref('')
 
 const txDialogOpen = ref(false)
@@ -247,7 +247,7 @@ function formatAmount(n: number) {
 function formatGroupDate(d: string) {
   const day = parseAppTime(d)
   if (!day) return d
-  const isToday = day.isSame(dayjs.tz(APP_TIMEZONE), 'day')
+  const isToday = day.isSame(dayjs().tz(APP_TIMEZONE), 'day')
   const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day.day()]
   return `${day.format('M月D日')} ${weekday}${isToday ? ' (今天)' : ''}`
 }

@@ -173,7 +173,7 @@ const form = ref({
   amount: 0 as number,
   note: '',
   tags: [] as string[],
-  transaction_at: dayjs.tz(APP_TIMEZONE).format('YYYY-MM-DDTHH:mm'),
+  transaction_at: dayjs().tz(APP_TIMEZONE).format('YYYY-MM-DDTHH:mm'),
 })
 
 const projectOptions = computed(() =>
@@ -238,7 +238,7 @@ watch(() => props.modelValue, (v) => {
       amount: 0,
       note: '',
       tags: [],
-      transaction_at: dayjs.tz(APP_TIMEZONE).format('YYYY-MM-DDTHH:mm'),
+      transaction_at: dayjs().tz(APP_TIMEZONE).format('YYYY-MM-DDTHH:mm'),
     }
   }
 })
