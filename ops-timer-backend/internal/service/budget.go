@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 	"time"
 
@@ -334,12 +335,12 @@ func (s *BudgetService) ListTransactions(params *dto.TransactionQueryParams) ([]
 		MaxAmount:  params.MaxAmount,
 	}
 	if params.StartDate != "" {
-		if t, err := time.Parse("2006-01-02", params.StartDate); err == nil {
+		if t, err := timeutil.ParseDate(params.StartDate); err == nil {
 			filter.StartDate = t
 		}
 	}
 	if params.EndDate != "" {
-		if t, err := time.Parse("2006-01-02", params.EndDate); err == nil {
+		if t, err := timeutil.ParseDate(params.EndDate); err == nil {
 			filter.EndDate = t.Add(24 * time.Hour)
 		}
 	}
@@ -441,12 +442,12 @@ func (s *BudgetService) DeleteTransaction(id string) error {
 func (s *BudgetService) GetStats(params *dto.WalletStatRequest) (*dto.WalletStatResponse, error) {
 	var start, end time.Time
 	if params.StartDate != "" {
-		if t, err := time.Parse("2006-01-02", params.StartDate); err == nil {
+		if t, err := timeutil.ParseDate(params.StartDate); err == nil {
 			start = t
 		}
 	}
 	if params.EndDate != "" {
-		if t, err := time.Parse("2006-01-02", params.EndDate); err == nil {
+		if t, err := timeutil.ParseDate(params.EndDate); err == nil {
 			end = t.Add(24 * time.Hour)
 		}
 	}
@@ -559,7 +560,7 @@ func (s *BudgetService) txToResponse(t *model.Transaction, wallet *model.Wallet)
 
 // currentMonthRange 返回当前月份的起始和结束时间（左闭右开）
 func currentMonthRange() (start, end time.Time) {
-	now := time.Now()
+	now := timeutil.Now()
 	start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	end = start.AddDate(0, 1, 0)
 	return

@@ -2,7 +2,7 @@ package repository
 
 import (
 	"ops-timer-backend/internal/model"
-	"time"
+	"ops-timer-backend/internal/pkg/timeutil"
 
 	"gorm.io/gorm"
 )
@@ -53,13 +53,13 @@ func (r *NotificationRepository) List(isRead *bool, level string, page, pageSize
 }
 
 func (r *NotificationRepository) MarkAsRead(id string) error {
-	now := time.Now()
+	now := timeutil.Now()
 	return r.db.Model(&model.Notification{}).Where("id = ?", id).
 		Updates(map[string]interface{}{"is_read": true, "read_at": &now}).Error
 }
 
 func (r *NotificationRepository) MarkAllAsRead() error {
-	now := time.Now()
+	now := timeutil.Now()
 	return r.db.Model(&model.Notification{}).Where("is_read = ?", false).
 		Updates(map[string]interface{}{"is_read": true, "read_at": &now}).Error
 }
@@ -76,7 +76,7 @@ func (r *NotificationRepository) Delete(id string) error {
 
 func (r *NotificationRepository) ExistsTodayForUnit(unitID, level string) (bool, error) {
 	var count int64
-	today := time.Now().Truncate(24 * time.Hour)
+	today := timeutil.StartOfDay(timeutil.Now())
 	err := r.db.Model(&model.Notification{}).
 		Where("unit_id = ? AND level = ? AND triggered_at >= ?", unitID, level, today).
 		Count(&count).Error

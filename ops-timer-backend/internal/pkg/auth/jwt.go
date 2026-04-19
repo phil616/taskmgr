@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"sync"
 	"time"
 
@@ -57,8 +58,8 @@ func (m *JWTManager) GenerateToken(userID, username string) (string, error) {
 		UserID:   userID,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(m.expiryHours) * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(timeutil.Now().Add(time.Duration(m.expiryHours) * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(timeutil.Now()),
 		},
 	}
 
@@ -93,7 +94,7 @@ func (m *JWTManager) ValidateToken(tokenStr string) (*Claims, error) {
 }
 
 func (m *JWTManager) RevokeToken(tokenStr string) {
-	expiresAt := time.Now().Add(time.Duration(m.expiryHours) * time.Hour)
+	expiresAt := timeutil.Now().Add(time.Duration(m.expiryHours) * time.Hour)
 
 	m.mu.Lock()
 	m.blacklist[tokenStr] = expiresAt
@@ -106,7 +107,7 @@ func (m *JWTManager) RevokeToken(tokenStr string) {
 
 func (m *JWTManager) CleanupBlacklist() {
 	m.mu.Lock()
-	now := time.Now()
+	now := timeutil.Now()
 	for token, expiry := range m.blacklist {
 		if now.After(expiry) {
 			delete(m.blacklist, token)

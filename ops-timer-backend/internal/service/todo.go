@@ -4,8 +4,8 @@ import (
 	"errors"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -16,8 +16,8 @@ var (
 )
 
 type TodoService struct {
-	todoRepo      *repository.TodoRepository
-	groupRepo     *repository.TodoGroupRepository
+	todoRepo  *repository.TodoRepository
+	groupRepo *repository.TodoGroupRepository
 }
 
 func NewTodoService(todoRepo *repository.TodoRepository, groupRepo *repository.TodoGroupRepository) *TodoService {
@@ -41,7 +41,7 @@ func (s *TodoService) Create(req *dto.CreateTodoRequest) (*dto.TodoResponse, err
 		todo.Priority = req.Priority
 	}
 	if req.DueDate != nil {
-		t, err := time.Parse("2006-01-02", *req.DueDate)
+		t, err := timeutil.ParseDate(*req.DueDate)
 		if err == nil {
 			todo.DueDate = &t
 		}
@@ -109,7 +109,7 @@ func (s *TodoService) Update(id string, req *dto.UpdateTodoRequest) (*dto.TodoRe
 	if req.Status != "" {
 		todo.Status = req.Status
 		if req.Status == model.TodoStatusDone {
-			now := time.Now()
+			now := timeutil.Now()
 			todo.CompletedAt = &now
 		}
 	}
@@ -120,7 +120,7 @@ func (s *TodoService) Update(id string, req *dto.UpdateTodoRequest) (*dto.TodoRe
 		todo.GroupID = req.GroupID
 	}
 	if req.DueDate != nil {
-		t, err := time.Parse("2006-01-02", *req.DueDate)
+		t, err := timeutil.ParseDate(*req.DueDate)
 		if err == nil {
 			todo.DueDate = &t
 		}
@@ -143,7 +143,7 @@ func (s *TodoService) UpdateStatus(id string, status string) (*dto.TodoResponse,
 
 	todo.Status = status
 	if status == model.TodoStatusDone {
-		now := time.Now()
+		now := timeutil.Now()
 		todo.CompletedAt = &now
 	}
 

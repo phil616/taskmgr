@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"time"
 	"unicode/utf16"
 
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -85,7 +85,7 @@ func (s *BackupService) Export() (*dto.BackupPackage, error) {
 		BackupMetadata: dto.BackupMetadata{
 			Format:        dto.BackupFormat,
 			SchemaVersion: dto.BackupSchemaVersion,
-			ExportedAt:    time.Now().UTC(),
+			ExportedAt:    timeutil.Now(),
 			Encoding:      "utf-8",
 			App: dto.BackupApp{
 				Name:    s.appName,

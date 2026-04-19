@@ -2,7 +2,7 @@ package repository
 
 import (
 	"ops-timer-backend/internal/model"
-	"time"
+	"ops-timer-backend/internal/pkg/timeutil"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -43,7 +43,7 @@ func (r *LoginAttemptRepository) Increment(username string, lockThreshold int) e
 
 		attempt.Count++
 		if attempt.Count >= lockThreshold {
-			attempt.LockedAt = time.Now()
+			attempt.LockedAt = timeutil.Now()
 		}
 		return tx.Save(&attempt).Error
 	})

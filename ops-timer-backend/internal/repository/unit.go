@@ -2,8 +2,8 @@ package repository
 
 import (
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"strings"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -157,10 +157,11 @@ func (r *UnitRepository) CountByProjectAndStatus(projectID, status string) (int6
 
 func (r *UnitRepository) CountExpiring(days int) (int64, error) {
 	var count int64
-	deadline := time.Now().AddDate(0, 0, days)
+	now := timeutil.Now()
+	deadline := now.AddDate(0, 0, days)
 	err := r.db.Model(&model.Unit{}).
 		Where("type = ? AND status = ? AND target_time <= ? AND target_time > ?",
-			model.UnitTypeTimeCountdown, model.UnitStatusActive, deadline, time.Now()).
+			model.UnitTypeTimeCountdown, model.UnitStatusActive, deadline, now).
 		Count(&count).Error
 	return count, err
 }
@@ -169,7 +170,7 @@ func (r *UnitRepository) CountExpired() (int64, error) {
 	var count int64
 	err := r.db.Model(&model.Unit{}).
 		Where("type = ? AND status = ? AND target_time <= ?",
-			model.UnitTypeTimeCountdown, model.UnitStatusActive, time.Now()).
+			model.UnitTypeTimeCountdown, model.UnitStatusActive, timeutil.Now()).
 		Count(&count).Error
 	return count, err
 }

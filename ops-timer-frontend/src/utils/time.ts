@@ -1,20 +1,61 @@
 import dayjs from 'dayjs'
+import customParseFormat from 'dayjs/plugin/customParseFormat'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import duration from 'dayjs/plugin/duration'
+import timezone from 'dayjs/plugin/timezone'
+import utc from 'dayjs/plugin/utc'
 import 'dayjs/locale/zh-cn'
 
+export const APP_TIMEZONE = 'Asia/Shanghai'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
+dayjs.extend(customParseFormat)
 dayjs.extend(relativeTime)
 dayjs.extend(duration)
 dayjs.locale('zh-cn')
+dayjs.tz.setDefault(APP_TIMEZONE)
+
+const dateOnlyPattern = /^\d{4}-\d{2}-\d{2}$/
+const localDateTimePattern = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/
+
+export function parseAppTime(date: string | undefined) {
+  if (!date) return null
+  if (dateOnlyPattern.test(date)) return dayjs.tz(date, 'YYYY-MM-DD', APP_TIMEZONE)
+  if (localDateTimePattern.test(date)) {
+    const normalized = date.replace(' ', 'T')
+    const format = normalized.length === 16 ? 'YYYY-MM-DDTHH:mm' : 'YYYY-MM-DDTHH:mm:ss'
+    return dayjs.tz(normalized, format, APP_TIMEZONE)
+  }
+  return dayjs(date).tz(APP_TIMEZONE)
+}
 
 export function formatDate(date: string | undefined): string {
   if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD')
+  return parseAppTime(date)?.format('YYYY-MM-DD') || '-'
 }
 
 export function formatDateTime(date: string | undefined): string {
   if (!date) return '-'
-  return dayjs(date).format('YYYY-MM-DD HH:mm')
+  return parseAppTime(date)?.format('YYYY-MM-DD HH:mm') || '-'
+}
+
+export function toDateInputValue(date: string | undefined): string {
+  return parseAppTime(date)?.format('YYYY-MM-DD') || ''
+}
+
+export function toDateTimeInputValue(date: string | undefined): string {
+  return parseAppTime(date)?.format('YYYY-MM-DDTHH:mm') || ''
+}
+
+export function toApiDateTime(dateTimeInput: string | undefined): string {
+  if (!dateTimeInput) return ''
+  return dayjs.tz(dateTimeInput, 'YYYY-MM-DDTHH:mm', APP_TIMEZONE).format('YYYY-MM-DDTHH:mm:ssZ')
+}
+
+export function toApiDateStart(dateInput: string | undefined): string {
+  if (!dateInput) return ''
+  return dayjs.tz(`${dateInput}T00:00:00`, 'YYYY-MM-DDTHH:mm:ss', APP_TIMEZONE).format('YYYY-MM-DDTHH:mm:ssZ')
 }
 
 export function formatDuration(seconds: number): string {

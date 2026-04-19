@@ -285,6 +285,7 @@ import { scheduleApi } from '@/api/schedules'
 import { projectApi } from '@/api/projects'
 import { todoApi } from '@/api/todos'
 import { unitApi } from '@/api/units'
+import { parseAppTime, toApiDateStart, toApiDateTime, toDateInputValue, toDateTimeInputValue } from '@/utils/time'
 import type {
   Schedule,
   ScheduleResource,
@@ -431,38 +432,28 @@ watch(resourcePickerType, () => {
 
 function formatToInput(isoStr: string, allDay: boolean): string {
   if (!isoStr) return ''
-  const d = new Date(isoStr)
-  if (isNaN(d.getTime())) return ''
-  if (allDay) {
-    return d.toISOString().split('T')[0]
-  }
-  // datetime-local format: YYYY-MM-DDTHH:mm
-  return d.toISOString().slice(0, 16)
+  return allDay ? toDateInputValue(isoStr) : toDateTimeInputValue(isoStr)
 }
 
 function onAllDayChange(val: boolean | null) {
   const v = val ?? false
-  // 重新转换时间格式
   if (form.value.start_time) {
-    form.value.start_time = formatToInput(new Date(form.value.start_time).toISOString(), v)
+    form.value.start_time = v ? form.value.start_time.slice(0, 10) : `${form.value.start_time}T00:00`
   }
   if (form.value.end_time) {
-    form.value.end_time = formatToInput(new Date(form.value.end_time).toISOString(), v)
+    form.value.end_time = v ? form.value.end_time.slice(0, 10) : `${form.value.end_time}T00:00`
   }
 }
 
 function validateEndTime(v: string) {
   if (!v || !form.value.start_time) return true
-  return new Date(v) > new Date(form.value.start_time) || '结束时间必须晚于开始时间'
+  const end = parseAppTime(v)
+  const start = parseAppTime(form.value.start_time)
+  return (!!end && !!start && end.isAfter(start)) || '结束时间必须晚于开始时间'
 }
 
 function toISOString(inputVal: string, allDay: boolean): string {
-  if (!inputVal) return ''
-  if (allDay) {
-    return inputVal + 'T00:00:00'
-  }
-  // datetime-local: "YYYY-MM-DDTHH:mm" → add :00 for seconds
-  return inputVal.length === 16 ? inputVal + ':00' : inputVal
+  return allDay ? toApiDateStart(inputVal) : toApiDateTime(inputVal)
 }
 
 async function submit() {
@@ -481,7 +472,7 @@ async function submit() {
       location: form.value.location,
       status: form.value.status as any,
       recurrence_type: form.value.recurrence_type as any,
-      recurrence_end: form.value.recurrence_end || undefined,
+      recurrence_end: form.value.recurrence_end ? toApiDateStart(form.value.recurrence_end) : undefined,
       tags: form.value.tags,
     }
 

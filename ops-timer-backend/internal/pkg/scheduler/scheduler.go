@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ops-timer-backend/internal/model"
 	"ops-timer-backend/internal/pkg/email"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 	"time"
 
@@ -29,7 +30,7 @@ func NewScheduler(
 	logger *zap.Logger,
 ) *Scheduler {
 	return &Scheduler{
-		cron:         cron.New(),
+		cron:         cron.New(cron.WithLocation(timeutil.Location())),
 		unitRepo:     unitRepo,
 		notifRepo:    notifRepo,
 		userRepo:     userRepo,
@@ -164,7 +165,7 @@ func (s *Scheduler) notify(unit *model.Unit, level, message string, details []em
 		UnitID:      unit.ID,
 		Level:       level,
 		Message:     message,
-		TriggeredAt: time.Now(),
+		TriggeredAt: timeutil.Now(),
 	}
 
 	if err := s.notifRepo.Create(n); err != nil {

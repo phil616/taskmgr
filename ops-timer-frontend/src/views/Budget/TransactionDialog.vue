@@ -144,8 +144,8 @@
 import { ref, computed, watch } from 'vue'
 import { transactionApi, categoryApi } from '@/api/budget'
 import { projectApi } from '@/api/projects'
+import { APP_TIMEZONE, dayjs, toApiDateTime, toDateTimeInputValue } from '@/utils/time'
 import type { Transaction, BudgetCategory, Wallet, Project } from '@/types'
-import dayjs from 'dayjs'
 
 const props = defineProps<{
   modelValue: boolean
@@ -173,7 +173,7 @@ const form = ref({
   amount: 0 as number,
   note: '',
   tags: [] as string[],
-  transaction_at: dayjs().format('YYYY-MM-DDTHH:mm'),
+  transaction_at: dayjs.tz(APP_TIMEZONE).format('YYYY-MM-DDTHH:mm'),
 })
 
 const projectOptions = computed(() =>
@@ -226,7 +226,7 @@ watch(() => props.modelValue, (v) => {
       amount: tx.amount,
       note: tx.note,
       tags: tx.tags ?? [],
-      transaction_at: dayjs(tx.transaction_at).format('YYYY-MM-DDTHH:mm'),
+      transaction_at: toDateTimeInputValue(tx.transaction_at),
     }
   } else {
     form.value = {
@@ -238,7 +238,7 @@ watch(() => props.modelValue, (v) => {
       amount: 0,
       note: '',
       tags: [],
-      transaction_at: dayjs().format('YYYY-MM-DDTHH:mm'),
+      transaction_at: dayjs.tz(APP_TIMEZONE).format('YYYY-MM-DDTHH:mm'),
     }
   }
 })
@@ -247,10 +247,6 @@ async function save() {
   if (!form.value.wallet_id || form.value.amount <= 0) return
   saving.value = true
   try {
-    // 确保时间格式含秒（datetime-local 不含秒时补全）
-    const normalizeTime = (t: string) =>
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(t) ? `${t}:00` : t
-
     // 确保 tags 全为字符串（v-combobox 可能混入对象）
     const cleanTags = (form.value.tags ?? []).map(t =>
       typeof t === 'string' ? t : String((t as any)?.title ?? t)
@@ -264,7 +260,7 @@ async function save() {
       amount: form.value.amount,
       note: form.value.note,
       tags: cleanTags,
-      transaction_at: normalizeTime(form.value.transaction_at),
+      transaction_at: toApiDateTime(form.value.transaction_at),
       to_wallet_id: form.value.type === 'transfer' ? form.value.to_wallet_id : undefined,
     }
     let res
@@ -280,7 +276,7 @@ async function save() {
         amount: payload.amount,
         note: payload.note,
         tags: cleanTags,
-        transaction_at: normalizeTime(form.value.transaction_at),
+        transaction_at: toApiDateTime(form.value.transaction_at),
       }
       res = await transactionApi.update(props.transaction.id, updatePayload)
     } else {

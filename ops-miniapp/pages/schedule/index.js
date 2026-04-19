@@ -1,5 +1,5 @@
 const { get, post, put, del } = require('../../utils/request');
-const { formatTime, getWeekday, isToday, addMonths } = require('../../utils/date');
+const { formatTime, getWeekday, isToday, addMonths, toShanghaiDateTimeInput, toShanghaiApiDateTime } = require('../../utils/date');
 
 Page({
   data: {
@@ -126,10 +126,9 @@ Page({
     const grouped = Object.keys(map)
       .sort()
       .map(date => {
-        const d = new Date(date);
         return {
           date,
-          dateLabel: `${d.getMonth() + 1}月${d.getDate()}日 ${getWeekday(date)}${isToday(date) ? ' (今天)' : ''}`,
+          dateLabel: `${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日 ${getWeekday(date)}${isToday(date) ? ' (今天)' : ''}`,
           schedules: map[date].sort((a, b) => a.start_time.localeCompare(b.start_time)),
         };
       });
@@ -148,10 +147,8 @@ Page({
 
   // ---- 创建/编辑弹窗 ----
   openCreateDialog() {
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const dt = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:00`;
-    const dt2 = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours()+1)}:00`;
+    const dt = toShanghaiDateTimeInput(new Date());
+    const dt2 = toShanghaiDateTimeInput(new Date(Date.now() + 60 * 60 * 1000));
     this.setData({
       dialogVisible: true,
       editingSchedule: null,
@@ -169,8 +166,8 @@ Page({
       scheduleForm: {
         title: s.title || '',
         description: s.description || '',
-        start_time: (s.start_time || '').replace(' ', 'T').slice(0, 16),
-        end_time: (s.end_time || '').replace(' ', 'T').slice(0, 16),
+        start_time: toShanghaiDateTimeInput(s.start_time),
+        end_time: toShanghaiDateTimeInput(s.end_time),
         all_day: s.all_day || false,
         color: s.color || '#0052d9',
         location: s.location || '',
@@ -224,8 +221,8 @@ Page({
       const payload = {
         title: scheduleForm.title,
         description: scheduleForm.description,
-        start_time: scheduleForm.start_time.replace('T', ' ') + ':00',
-        end_time: scheduleForm.end_time.replace('T', ' ') + ':00',
+        start_time: toShanghaiApiDateTime(scheduleForm.start_time),
+        end_time: toShanghaiApiDateTime(scheduleForm.end_time),
         all_day: scheduleForm.all_day,
         color: scheduleForm.color,
         location: scheduleForm.location,

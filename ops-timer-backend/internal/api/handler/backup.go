@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/pkg/response"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -28,7 +28,7 @@ func (h *BackupHandler) Export(c *gin.Context) {
 		return
 	}
 
-	filename := fmt.Sprintf("task-manager-backup-%s.json", time.Now().UTC().Format("2006-01-02T15-04-05Z"))
+	filename := fmt.Sprintf("task-manager-backup-%s.json", timeutil.Now().Format("2006-01-02T15-04-05+08-00"))
 	raw, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		response.InternalError(c, "序列化备份数据失败")

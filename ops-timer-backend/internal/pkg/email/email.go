@@ -10,9 +10,9 @@ import (
 	"net/smtp"
 	"regexp"
 	"strings"
-	"time"
 
 	"ops-timer-backend/internal/config"
+	"ops-timer-backend/internal/pkg/timeutil"
 )
 
 // Service 封装 SMTP 邮件发送能力
@@ -73,7 +73,7 @@ func buildData(unitTitle, unitType, message, level string, details []Detail) Not
 		UnitType:    unitType,
 		Message:     message,
 		Level:       level,
-		TriggeredAt: time.Now().Format("2006-01-02 15:04"),
+		TriggeredAt: timeutil.Now().Format("2006-01-02 15:04"),
 		Details:     details,
 	}
 	switch level {

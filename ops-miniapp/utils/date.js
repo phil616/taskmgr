@@ -1,37 +1,71 @@
 /**
  * 日期/时间格式化工具
  */
+const APP_TIMEZONE = 'Asia/Shanghai';
+
+function getParts(dateLike, options = {}) {
+  const date = typeof dateLike === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateLike)
+    ? new Date(`${dateLike}T00:00:00+08:00`)
+    : new Date(dateLike);
+  const formatter = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: options.withTime ? '2-digit' : undefined,
+    minute: options.withTime ? '2-digit' : undefined,
+    weekday: options.withWeekday ? 'short' : undefined,
+    hour12: false,
+  });
+  const parts = {};
+  for (const part of formatter.formatToParts(date)) {
+    if (part.type !== 'literal') parts[part.type] = part.value;
+  }
+  return parts;
+}
+
+function shanghaiNowParts() {
+  return getParts(new Date(), { withTime: true });
+}
+
+function toShanghaiDateTimeInput(dateStr) {
+  if (!dateStr) return '';
+  const parts = getParts(dateStr, { withTime: true });
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+function toShanghaiApiDateTime(dateTimeInput) {
+  if (!dateTimeInput) return '';
+  return `${dateTimeInput}:00+08:00`;
+}
+
+function toShanghaiApiDateStart(dateInput) {
+  if (!dateInput) return '';
+  return `${dateInput}T00:00:00+08:00`;
+}
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  const parts = getParts(dateStr);
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function formatDateTime(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const h = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${day} ${h}:${min}`;
+  const parts = getParts(dateStr, { withTime: true });
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
 }
 
 function formatTime(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const parts = getParts(dateStr, { withTime: true });
+  return `${parts.hour}:${parts.minute}`;
 }
 
 function formatMonthDay(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
+  const parts = getParts(dateStr);
+  return `${Number(parts.month)}月${Number(parts.day)}日`;
 }
 
 function formatDuration(seconds) {
@@ -51,26 +85,25 @@ function formatAmount(num) {
 
 function getWeekday(dateStr) {
   if (!dateStr) return '';
-  const d = new Date(dateStr);
-  return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()];
+  const parts = getParts(dateStr, { withWeekday: true });
+  return parts.weekday;
 }
 
 function isToday(dateStr) {
   if (!dateStr) return false;
-  const d = new Date(dateStr);
-  const today = new Date();
-  return d.toDateString() === today.toDateString();
+  return formatDate(dateStr) === formatDate(new Date());
 }
 
 function currentMonthStart() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const now = shanghaiNowParts();
+  return `${now.year}-${now.month}-01`;
 }
 
 function currentMonthEnd() {
-  const now = new Date();
-  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return formatDate(last.toISOString());
+  const now = shanghaiNowParts();
+  const last = new Date(`${now.year}-${now.month}-01T00:00:00+08:00`);
+  last.setMonth(last.getMonth() + 1, 0);
+  return formatDate(last);
 }
 
 function addMonths(dateStr, n) {
@@ -91,4 +124,7 @@ module.exports = {
   currentMonthStart,
   currentMonthEnd,
   addMonths,
+  toShanghaiDateTimeInput,
+  toShanghaiApiDateTime,
+  toShanghaiApiDateStart,
 };

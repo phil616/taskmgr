@@ -288,6 +288,7 @@ import UnitCard from '@/components/UnitCard.vue'
 import {
   getUnitTypeLabel, getStatusColor, getStatusLabel,
   getPriorityColor, getPriorityLabel, formatDuration,
+  toApiDateTime, toDateTimeInputValue,
 } from '@/utils/time'
 
 const units = ref<Unit[]>([])
@@ -420,8 +421,8 @@ function editUnit(unit: Unit) {
     tags: unit.tags || [],
     color: unit.color,
     project_id: unit.project_id || null,
-    target_time: unit.target_time ? unit.target_time.slice(0, 16) : '',
-    start_time: unit.start_time ? unit.start_time.slice(0, 16) : '',
+    target_time: toDateTimeInputValue(unit.target_time),
+    start_time: toDateTimeInputValue(unit.start_time),
     current_value: unit.current_value || 0,
     target_value: unit.target_value || 0,
     step: unit.step || 1,
@@ -473,11 +474,11 @@ async function saveUnit() {
     }
 
     if (form.type === 'time_countdown' && form.target_time) {
-      payload.target_time = new Date(form.target_time).toISOString()
+      payload.target_time = toApiDateTime(form.target_time)
       payload.remind_before_days = form.remind_before_days
     }
     if (form.type === 'time_countup' && form.start_time) {
-      payload.start_time = new Date(form.start_time).toISOString()
+      payload.start_time = toApiDateTime(form.start_time)
       payload.remind_after_days = form.remind_after_days
     }
     if (form.type === 'count_countdown' || form.type === 'count_countup') {

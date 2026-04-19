@@ -2,6 +2,7 @@ package repository
 
 import (
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"time"
 
 	"gorm.io/gorm"
@@ -24,17 +25,17 @@ func (r *RevokedTokenRepository) Add(token string, expiresAt time.Time) error {
 
 func (r *RevokedTokenRepository) Exists(token string) bool {
 	var count int64
-	r.db.Model(&model.RevokedToken{}).Where("token = ? AND expires_at > ?", token, time.Now()).Count(&count)
+	r.db.Model(&model.RevokedToken{}).Where("token = ? AND expires_at > ?", token, timeutil.Now()).Count(&count)
 	return count > 0
 }
 
 func (r *RevokedTokenRepository) Cleanup() error {
-	return r.db.Where("expires_at <= ?", time.Now()).Delete(&model.RevokedToken{}).Error
+	return r.db.Where("expires_at <= ?", timeutil.Now()).Delete(&model.RevokedToken{}).Error
 }
 
 func (r *RevokedTokenRepository) LoadAll() (map[string]time.Time, error) {
 	var tokens []model.RevokedToken
-	err := r.db.Where("expires_at > ?", time.Now()).Find(&tokens).Error
+	err := r.db.Where("expires_at > ?", timeutil.Now()).Find(&tokens).Error
 	if err != nil {
 		return nil, err
 	}

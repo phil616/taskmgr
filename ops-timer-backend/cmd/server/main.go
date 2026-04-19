@@ -14,6 +14,7 @@ import (
 	"ops-timer-backend/internal/pkg/auth"
 	"ops-timer-backend/internal/pkg/email"
 	"ops-timer-backend/internal/pkg/scheduler"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 	"ops-timer-backend/internal/service"
 
@@ -37,6 +38,9 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
+	}
+	if err := timeutil.SetLocalTimezone(); err != nil {
+		log.Fatalf("设置时区失败: %v", err)
 	}
 
 	zapLogger := initLogger(cfg.Log)

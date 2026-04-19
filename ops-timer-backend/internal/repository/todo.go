@@ -2,7 +2,7 @@ package repository
 
 import (
 	"ops-timer-backend/internal/model"
-	"time"
+	"ops-timer-backend/internal/pkg/timeutil"
 
 	"gorm.io/gorm"
 )
@@ -57,7 +57,7 @@ func (r *TodoRepository) List(filter TodoFilter) ([]model.Todo, int64, error) {
 		}
 	}
 	if filter.DueDate != "" {
-		t, err := time.Parse("2006-01-02", filter.DueDate)
+		t, err := timeutil.ParseDate(filter.DueDate)
 		if err == nil {
 			query = query.Where("due_date <= ?", t)
 		}
@@ -81,9 +81,9 @@ func (r *TodoRepository) Delete(id string) error {
 }
 
 func (r *TodoRepository) BatchUpdateStatus(ids []string, status string) error {
-	updates := map[string]interface{}{"status": status, "updated_at": time.Now()}
+	now := timeutil.Now()
+	updates := map[string]interface{}{"status": status, "updated_at": now}
 	if status == model.TodoStatusDone {
-		now := time.Now()
 		updates["completed_at"] = &now
 	}
 	return r.db.Model(&model.Todo{}).Where("id IN ?", ids).Updates(updates).Error

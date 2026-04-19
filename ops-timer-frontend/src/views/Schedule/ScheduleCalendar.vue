@@ -203,8 +203,8 @@
 import { ref, computed, onMounted } from 'vue'
 import ScheduleDialog from './ScheduleDialog.vue'
 import { scheduleApi } from '@/api/schedules'
+import { APP_TIMEZONE, dayjs, parseAppTime } from '@/utils/time'
 import type { Schedule } from '@/types'
-import dayjs from 'dayjs'
 
 // ---- 状态 ----
 
@@ -219,14 +219,15 @@ const selectedSchedule = ref<Schedule | null>(null)
 const schedules = ref<Schedule[]>([])
 
 // 当前查阅的月份，默认本月 1 号
-const currentDate = ref(dayjs().startOf('month'))
+const currentDate = ref(dayjs.tz(APP_TIMEZONE).startOf('month'))
 
 const currentMonthLabel = computed(() => currentDate.value.format('YYYY年 MM月'))
 
 const groupedSchedules = computed(() => {
   const map = new Map<string, Schedule[]>()
   for (const s of schedules.value) {
-    const d = dayjs(s.start_time).format('YYYY-MM-DD')
+    const d = parseAppTime(s.start_time)?.format('YYYY-MM-DD')
+    if (!d) continue
     if (!map.has(d)) map.set(d, [])
     map.get(d)!.push(s)
   }
@@ -251,7 +252,7 @@ function nextMonth() {
 }
 
 function goToday() {
-  currentDate.value = dayjs().startOf('month')
+  currentDate.value = dayjs.tz(APP_TIMEZONE).startOf('month')
   fetchSchedules()
 }
 
@@ -277,10 +278,10 @@ async function fetchSchedules() {
 
 function openCreateDialog() {
   editingSchedule.value = null
-  const now = dayjs()
+  const now = dayjs.tz(APP_TIMEZONE)
   // 默认创建一个1小时的日程
-  newEventStartTime.value = now.format('YYYY-MM-DDTHH:00')
-  newEventEndTime.value = now.add(1, 'hour').format('YYYY-MM-DDTHH:00')
+  newEventStartTime.value = now.startOf('hour').format('YYYY-MM-DDTHH:mm')
+  newEventEndTime.value = now.startOf('hour').add(1, 'hour').format('YYYY-MM-DDTHH:mm')
   dialogOpen.value = true
 }
 
@@ -312,25 +313,27 @@ function onScheduleDeleted() {
 // ---- 格式化辅助 ----
 
 function formatGroupDate(dateStr: string) {
-  const d = dayjs(dateStr)
-  const isToday = d.isSame(dayjs(), 'day')
+  const d = parseAppTime(dateStr)
+  if (!d) return dateStr
+  const isToday = d.isSame(dayjs.tz(APP_TIMEZONE), 'day')
   const weekday = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.day()]
   return `${d.format('M月D日')} ${weekday}${isToday ? ' (今天)' : ''}`
 }
 
 function formatScheduleTimeShort(s: Schedule): string {
   if (s.all_day) return '全天'
-  return `${dayjs(s.start_time).format('HH:mm')} - ${dayjs(s.end_time).format('HH:mm')}`
+  return `${parseAppTime(s.start_time)?.format('HH:mm')} - ${parseAppTime(s.end_time)?.format('HH:mm')}`
 }
 
 function formatScheduleTime(s: Schedule): string {
   if (s.all_day) {
-    const start = dayjs(s.start_time).format('YYYY年M月D日')
-    const end = dayjs(s.end_time).format('YYYY年M月D日')
+    const start = parseAppTime(s.start_time)?.format('YYYY年M月D日')
+    const end = parseAppTime(s.end_time)?.format('YYYY年M月D日')
     return start === end ? `${start} · 全天` : `${start} ~ ${end} · 全天`
   }
-  const start = dayjs(s.start_time)
-  const end = dayjs(s.end_time)
+  const start = parseAppTime(s.start_time)
+  const end = parseAppTime(s.end_time)
+  if (!start || !end) return ''
   if (start.format('YYYY-MM-DD') === end.format('YYYY-MM-DD')) {
     return `${start.format('YYYY年M月D日 HH:mm')} ~ ${end.format('HH:mm')}`
   }

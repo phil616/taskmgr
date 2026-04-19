@@ -5,6 +5,7 @@ import (
 	"math"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 	"strings"
 	"time"
@@ -13,15 +14,15 @@ import (
 )
 
 var (
-	ErrUnitNotFound      = errors.New("计时单元不存在")
-	ErrNotCountType      = errors.New("该操作仅适用于数值型计时单元")
-	ErrExceedNotAllowed  = errors.New("不允许超出目标值")
-	ErrInvalidUnitType   = errors.New("无效的计时单元类型")
+	ErrUnitNotFound     = errors.New("计时单元不存在")
+	ErrNotCountType     = errors.New("该操作仅适用于数值型计时单元")
+	ErrExceedNotAllowed = errors.New("不允许超出目标值")
+	ErrInvalidUnitType  = errors.New("无效的计时单元类型")
 )
 
 type UnitService struct {
-	unitRepo    *repository.UnitRepository
-	logRepo     *repository.UnitLogRepository
+	unitRepo *repository.UnitRepository
+	logRepo  *repository.UnitLogRepository
 }
 
 func NewUnitService(unitRepo *repository.UnitRepository, logRepo *repository.UnitLogRepository) *UnitService {
@@ -257,7 +258,7 @@ func (s *UnitService) Step(id string, req *dto.StepRequest) (*dto.UnitResponse, 
 		ValueBefore: currentVal,
 		ValueAfter:  newVal,
 		Note:        req.Note,
-		OperatedAt:  time.Now(),
+		OperatedAt:  timeutil.Now(),
 	}
 
 	if err := s.logRepo.Create(log); err != nil {
@@ -298,7 +299,7 @@ func (s *UnitService) SetValue(id string, req *dto.SetValueRequest) (*dto.UnitRe
 		ValueBefore: currentVal,
 		ValueAfter:  req.Value,
 		Note:        req.Note,
-		OperatedAt:  time.Now(),
+		OperatedAt:  timeutil.Now(),
 	}
 
 	if err := s.logRepo.Create(log); err != nil {

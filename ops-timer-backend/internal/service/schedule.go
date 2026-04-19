@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/timeutil"
 	"ops-timer-backend/internal/repository"
 	"time"
 
@@ -171,14 +172,14 @@ func (s *ScheduleService) List(params *dto.ScheduleQueryParams) ([]*dto.Schedule
 	var startDate, endDate time.Time
 
 	if params.StartDate != "" {
-		t, err := time.Parse("2006-01-02", params.StartDate)
+		t, err := timeutil.ParseDate(params.StartDate)
 		if err != nil {
 			return nil, 0, fmt.Errorf("start_date 格式错误，请用 YYYY-MM-DD")
 		}
 		startDate = t
 	}
 	if params.EndDate != "" {
-		t, err := time.Parse("2006-01-02", params.EndDate)
+		t, err := timeutil.ParseDate(params.EndDate)
 		if err != nil {
 			return nil, 0, fmt.Errorf("end_date 格式错误，请用 YYYY-MM-DD")
 		}
@@ -326,17 +327,5 @@ func (s *ScheduleService) validateResource(resourceType, resourceID string) erro
 
 // parseTime 支持多种常见时间格式（RFC3339、带秒、不带秒、空格分隔）
 func parseTime(s string) (time.Time, error) {
-	formats := []string{
-		time.RFC3339,          // 2006-01-02T15:04:05Z07:00
-		"2006-01-02T15:04:05", // 带秒无时区
-		"2006-01-02T15:04",    // datetime-local 无秒（浏览器默认格式）
-		"2006-01-02 15:04:05", // 空格分隔带秒
-		"2006-01-02 15:04",    // 空格分隔无秒
-	}
-	for _, f := range formats {
-		if t, err := time.Parse(f, s); err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("无法解析时间: %s", s)
+	return timeutil.ParseDateTime(s)
 }

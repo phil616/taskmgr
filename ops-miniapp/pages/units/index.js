@@ -1,5 +1,5 @@
 const { get, post, put, patch } = require('../../utils/request');
-const { formatDuration, formatDate } = require('../../utils/date');
+const { formatDuration, formatDate, toShanghaiApiDateStart } = require('../../utils/date');
 
 Page({
   data: {
@@ -141,7 +141,7 @@ Page({
         type: unitForm.type,
         priority: unitForm.priority,
       };
-      if (unitForm.type === 'time_countdown' && unitForm.target_time) payload.target_time = unitForm.target_time + 'T00:00:00Z';
+      if (unitForm.type === 'time_countdown' && unitForm.target_time) payload.target_time = toShanghaiApiDateStart(unitForm.target_time);
       if (unitForm.type.startsWith('count')) {
         payload.target_value = unitForm.target_value;
         payload.step = unitForm.step;

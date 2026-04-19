@@ -1,5 +1,5 @@
 const { get, post, put, del } = require('../../utils/request');
-const { formatAmount, formatDateTime } = require('../../utils/date');
+const { formatAmount, formatDateTime, toShanghaiApiDateTime, toShanghaiDateTimeInput } = require('../../utils/date');
 
 Page({
   data: {
@@ -148,9 +148,7 @@ Page({
 
   // ---- 创建/编辑交易 ----
   openCreateTx() {
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    const dt = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const dt = toShanghaiDateTimeInput(new Date()).replace('T', ' ');
     this.setData({
       txDialogVisible: true,
       editingTx: null,
@@ -174,7 +172,7 @@ Page({
         category_id: tx.category_id || '',
         categoryName: catObj ? catObj.name : '',
         note: tx.note || '',
-        transaction_at: tx.transaction_at ? tx.transaction_at.slice(0, 16).replace('T', ' ') : '',
+        transaction_at: tx.transaction_at ? toShanghaiDateTimeInput(tx.transaction_at).replace('T', ' ') : '',
         to_wallet_id: tx.to_wallet_id || '',
         toWalletName: walletObj ? walletObj.name : '',
         project_id: tx.project_id || '',
@@ -225,7 +223,7 @@ Page({
         type: txForm.type,
         amount,
         note: txForm.note,
-        transaction_at: txForm.transaction_at + ':00',
+        transaction_at: toShanghaiApiDateTime(txForm.transaction_at.replace(' ', 'T')),
       };
       if (txForm.category_id) payload.category_id = txForm.category_id;
       if (txForm.project_id) payload.project_id = txForm.project_id;
@@ -237,7 +235,7 @@ Page({
           note: txForm.note,
           category_id: txForm.category_id || null,
           project_id: txForm.project_id || null,
-          transaction_at: txForm.transaction_at + ':00',
+          transaction_at: toShanghaiApiDateTime(txForm.transaction_at.replace(' ', 'T')),
         });
       } else {
         await post('/transactions', payload);
