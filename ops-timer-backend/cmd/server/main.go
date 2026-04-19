@@ -89,6 +89,7 @@ func main() {
 	scheduleService := service.NewScheduleService(scheduleRepo, projectRepo, unitRepo, todoRepo)
 	budgetService := service.NewBudgetService(walletRepo, categoryRepo, txRepo)
 	secretService := service.NewSecretService(secretRepo, secretAuditRepo, projectRepo)
+	backupService := service.NewBackupService(db, "ops-task-manager", "1.0.0")
 
 	if err := authService.EnsureAdminExists(*adminUser, *adminPass); err != nil {
 		zapLogger.Fatal("创建管理员账户失败", zap.Error(err))
@@ -113,6 +114,7 @@ func main() {
 	scheduleHandler := handler.NewScheduleHandler(scheduleService)
 	budgetHandler := handler.NewBudgetHandler(budgetService)
 	secretHandler := handler.NewSecretHandler(secretService)
+	backupHandler := handler.NewBackupHandler(backupService)
 	var mcpHandler *handler.MCPHandler
 	if cfg.MCP.Enabled {
 		mcpHandler = handler.NewMCPHandler(handler.MCPHandlerConfig{
@@ -140,6 +142,7 @@ func main() {
 		ScheduleHandler: scheduleHandler,
 		BudgetHandler:   budgetHandler,
 		SecretHandler:   secretHandler,
+		BackupHandler:   backupHandler,
 		MCPHandler:      mcpHandler,
 		JWTManager:      jwtManager,
 		AuthService:     authService,

@@ -22,6 +22,7 @@ type Router struct {
 	scheduleHandler *handler.ScheduleHandler
 	budgetHandler   *handler.BudgetHandler
 	secretHandler   *handler.SecretHandler
+	backupHandler   *handler.BackupHandler
 	mcpHandler      *handler.MCPHandler
 	jwtManager      *auth.JWTManager
 	authService     *service.AuthService
@@ -40,6 +41,7 @@ type RouterConfig struct {
 	ScheduleHandler *handler.ScheduleHandler
 	BudgetHandler   *handler.BudgetHandler
 	SecretHandler   *handler.SecretHandler
+	BackupHandler   *handler.BackupHandler
 	MCPHandler      *handler.MCPHandler
 	JWTManager      *auth.JWTManager
 	AuthService     *service.AuthService
@@ -64,6 +66,7 @@ func NewRouter(cfg *RouterConfig) *Router {
 		scheduleHandler: cfg.ScheduleHandler,
 		budgetHandler:   cfg.BudgetHandler,
 		secretHandler:   cfg.SecretHandler,
+		backupHandler:   cfg.BackupHandler,
 		mcpHandler:      cfg.MCPHandler,
 		jwtManager:      cfg.JWTManager,
 		authService:     cfg.AuthService,
@@ -78,7 +81,7 @@ func (r *Router) Setup() *gin.Engine {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(middleware.SecurityHeadersMiddleware())
-	engine.Use(middleware.BodySizeLimitMiddleware(4 << 20)) // 4 MiB 请求体上限
+	engine.Use(middleware.BodySizeLimitMiddleware(32 << 20)) // 32 MiB 请求体上限
 	engine.Use(middleware.CORSMiddleware(r.corsOrigins))
 	engine.Use(middleware.LoggerMiddleware(r.logger))
 
@@ -214,6 +217,10 @@ func (r *Router) Setup() *gin.Engine {
 	protected.GET("/secrets/:id/value", r.secretHandler.GetValue)
 	protected.GET("/secrets/:id/audit-logs", r.secretHandler.AuditLogs)
 	protected.GET("/secret-audit-logs", r.secretHandler.AuditLogs)
+
+	// Backup
+	protected.GET("/backup/export", r.backupHandler.Export)
+	protected.POST("/backup/import", r.backupHandler.Import)
 
 	r.engine = engine
 	return engine

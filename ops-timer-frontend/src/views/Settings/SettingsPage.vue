@@ -43,6 +43,68 @@
 
       <!-- 右列 -->
       <v-col cols="12" md="6">
+        <!-- 数据导入导出 -->
+        <v-card class="rounded-lg mb-4">
+          <v-card-title>数据导入导出</v-card-title>
+          <v-divider />
+          <v-card-text>
+            <p class="text-body-2 text-medium-emphasis mb-3">
+              导出会由后端直接生成全量备份。导入会由后端在单个事务中完成，支持“合并”与“覆盖”两种策略；若导入失败，会整体回滚。
+            </p>
+
+            <v-select
+              v-model="backupImportStrategy"
+              :items="backupImportStrategyOptions"
+              item-title="title"
+              item-value="value"
+              label="导入策略"
+              density="compact"
+              hide-details
+              class="mb-3"
+            />
+
+            <div class="d-flex flex-wrap ga-3">
+              <v-btn
+                color="primary"
+                prepend-icon="mdi-download"
+                :loading="exportingData"
+                :disabled="importingData"
+                @click="handleExport"
+              >
+                导出 JSON
+              </v-btn>
+              <v-btn
+                color="secondary"
+                variant="tonal"
+                prepend-icon="mdi-upload"
+                :loading="importingData"
+                :disabled="exportingData"
+                @click="triggerImport"
+              >
+                导入 JSON
+              </v-btn>
+            </div>
+
+            <input
+              ref="importInput"
+              type="file"
+              accept=".json,application/json"
+              style="display: none"
+              @change="handleImportFileChange"
+            />
+
+            <v-alert
+              v-if="dataTransferMsg"
+              :type="dataTransferSuccess ? 'success' : 'error'"
+              variant="tonal"
+              density="compact"
+              class="mt-3"
+            >
+              {{ dataTransferMsg }}
+            </v-alert>
+          </v-card-text>
+        </v-card>
+
         <!-- 邮件通知 -->
         <v-card class="rounded-lg mb-4">
           <v-card-title class="d-flex align-center">
@@ -138,6 +200,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
+import { backupApi, type BackupImportStrategy } from '@/api/backup'
 
 const auth = useAuthStore()
 const profileForm = reactive({ username: '', display_name: '', email: '' })
@@ -149,6 +212,14 @@ const savingPassword = ref(false)
 const regenerating = ref(false)
 const testingEmail = ref(false)
 const smtpEnabled = ref(false)
+const exportingData = ref(false)
+const importingData = ref(false)
+const importInput = ref<HTMLInputElement | null>(null)
+const backupImportStrategy = ref<BackupImportStrategy>('merge')
+const backupImportStrategyOptions = [
+  { title: '合并导入', value: 'merge' },
+  { title: '覆盖恢复', value: 'overwrite' },
+]
 
 const profileMsg = ref('')
 const profileSuccess = ref(false)
@@ -156,6 +227,8 @@ const passwordMsg = ref('')
 const passwordSuccess = ref(false)
 const emailTestMsg = ref('')
 const emailTestSuccess = ref(false)
+const dataTransferMsg = ref('')
+const dataTransferSuccess = ref(false)
 
 async function loadProfile() {
   profileForm.username = auth.user?.username || ''
@@ -245,6 +318,76 @@ async function regenerateToken() {
     apiToken.value = resp.data.api_token
   } catch { /* ignore */ } finally {
     regenerating.value = false
+  }
+}
+
+function setDataTransferMessage(message: string, success: boolean) {
+  dataTransferMsg.value = message
+  dataTransferSuccess.value = success
+}
+
+async function handleExport() {
+  exportingData.value = true
+  setDataTransferMessage('', true)
+  try {
+    const response = await backupApi.export()
+    const blob = response.data
+    const disposition = response.headers['content-disposition'] as string | undefined
+    const filename = disposition?.match(/filename="([^"]+)"/)?.[1] || `task-manager-backup-${new Date().toISOString()}.json`
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    setDataTransferMessage(`导出成功：${filename}`, true)
+  } catch (e: any) {
+    setDataTransferMessage(e.response?.data?.message || e.message || '导出失败', false)
+  } finally {
+    exportingData.value = false
+  }
+}
+
+function triggerImport() {
+  importInput.value?.click()
+}
+
+async function handleImportFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  const strategyLabel = backupImportStrategy.value === 'overwrite' ? '覆盖恢复' : '合并导入'
+  if (!confirm(`确认以「${strategyLabel}」方式导入文件「${file.name}」？后端会在单个事务中执行，失败会整体回滚。`)) {
+    return
+  }
+
+  importingData.value = true
+  setDataTransferMessage('', true)
+
+  try {
+    const resp = await backupApi.import(file, backupImportStrategy.value)
+    const result = resp.data.data
+    const stats = result.stats
+    const summary = [
+      `项目 ${stats.projects || 0}`,
+      `单元 ${stats.units || 0}`,
+      `待办 ${stats.todos || 0}`,
+      `笔记 ${stats.notes || 0}`,
+      `日程 ${stats.schedules || 0}`,
+      `钱包 ${stats.wallets || 0}`,
+      `交易 ${stats.transactions || 0}`,
+      `密钥 ${stats.secrets || 0}`,
+    ].join('，')
+
+    setDataTransferMessage(`导入完成：策略 ${result.strategy}；${summary}`, true)
+  } catch (e: any) {
+    setDataTransferMessage(e.response?.data?.message || e.message || '导入失败', false)
+  } finally {
+    importingData.value = false
   }
 }
 
