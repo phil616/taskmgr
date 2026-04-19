@@ -97,7 +97,7 @@ main:
                 -e TASK_MANAGER_SERVER_PORT=5003 \
                 -e TASK_MANAGER_SERVER_CORS_ORIGINS="${DEVOPS_OPS_TIMER_CORS_ORIGINS}" \
                 -e TASK_MANAGER_DATABASE_DRIVER=sqlite \
-                -e TASK_MANAGER_DATABASE_DSN=./data/task_manager.db \
+                -e TASK_MANAGER_DATABASE_DSN=./data/taskmgr.db \
                 -e TASK_MANAGER_AUTH_JWT_SECRET="${DEVOPS_OPS_TIMER_JWT_SECRET}" \
                 -e TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS=24 \
                 -e TASK_MANAGER_MCP_ENABLED=true \
