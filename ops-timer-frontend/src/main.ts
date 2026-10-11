@@ -5,7 +5,7 @@ import router from './router'
 import App from './App.vue'
 
 const app = createApp(App)
-
+console.info(import.meta.env.VITE_COMMIT_SHA)
 app.use(createPinia())
 app.use(router)
 app.use(vuetify)
