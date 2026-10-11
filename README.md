@@ -6,7 +6,7 @@
 
 - **计时单元管理**：支持时间型（倒计时/正计时）和数值型（目标计数/累计计数）
 - **项目管理**：将相关计时单元归属到项目中统一管理
-- **TODO待办**：轻量级待办事项管理，支持分组和批量操作
+- **TODO待办**：轻量级待办事项管理，支持分组、批量操作，以及 [0,1] 范围的重要程度和困难程度
 - **笔记管理**：Markdown 笔记 CRUD、分组、标签与全文关键词搜索
 - **通知提醒**：后台定时扫描，自动生成到期/超期提醒
 - **认证方式**：JWT + API Token 双认证方式
@@ -17,7 +17,7 @@
 
 | 层面 | 技术 |
 |------|------|
-| 后端 | Go 1.22+, Gin, GORM, SQLite |
+| 后端 | Go 1.25+, Gin, GORM, PostgreSQL |
 | 前端 | Vue 3, Vuetify 3, Pinia, TypeScript |
 | 构建 | Vite 5, Docker |
 
@@ -34,12 +34,17 @@ OpenSource: https://github.com/phil616/taskmgr
 **后端：**
 
 ```bash
+docker run -d --name taskmgr-postgres -p 127.0.0.1:5432:5432 \
+  -e POSTGRES_USER=taskmgr -e POSTGRES_PASSWORD=taskmgr -e POSTGRES_DB=taskmgr \
+  -v taskmgr-postgres-data:/var/lib/postgresql/data postgres:17
 cd ops-timer-backend
+cp env.example .env
+# 将 .env 中 TASK_MANAGER_AUTH_JWT_SECRET 替换为 openssl rand -hex 32 生成的值
 go mod tidy
 go run ./cmd/server/
 ```
 
-默认管理员账户：`admin` / `admin123`
+默认管理员账户：`admin` / `Admin@12345`
 
 **前端：**
 
@@ -53,11 +58,9 @@ npm run dev
 
 ### Docker 部署
 
-```bash
-docker compose up -d
-```
+后端镜像使用 `ops-timer-backend/Dockerfile` 构建，通过 `TASK_MANAGER_DATABASE_DSN` 连接已创建的 PostgreSQL 数据库；启动时自动建表。仅支持 PostgreSQL，不提供 SQLite 迁移或兼容路径。
 
-访问 `http://localhost` 即可使用。
+CNB 部署前，在目标服务器创建权限为 `600` 的 `/root/ops-timer-postgres.env`，内容为 `TASK_MANAGER_DATABASE_DSN=<PostgreSQL 连接串>`。流水线通过 Docker `--env-file` 读取该文件，数据库凭据不会插入远端 Shell 命令。生产连接串请按数据库服务要求配置 TLS。
 
 ## 构建命令
 
@@ -108,7 +111,7 @@ cd-v2/
 │   │   ├── types/           # TypeScript 类型
 │   │   └── utils/           # 工具函数
 │   └── Dockerfile
-└── docker-compose.yml
+
 ```
 
 ## API 认证
@@ -237,11 +240,48 @@ curl -X POST http://localhost:8080/mcp \
 | 环境变量 | 说明 | 默认值 |
 |--------|------|--------|
 | `TASK_MANAGER_SERVER_PORT` | 服务端口 | 8080 |
-| `TASK_MANAGER_DATABASE_DRIVER` | 数据库驱动 | sqlite |
-| `TASK_MANAGER_DATABASE_DSN` | 数据库连接 | ./data/task_manager.db |
+| `TASK_MANAGER_DATABASE_DSN` | PostgreSQL 连接串 | postgres://taskmgr:taskmgr@localhost:5432/taskmgr?sslmode=disable |
 | `TASK_MANAGER_AUTH_JWT_SECRET` | JWT 密钥 | 需修改 |
 | `TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS` | JWT 过期时间（小时） | 24 |
 | `TASK_MANAGER_SCHEDULER_NOTIFICATION_SCAN_INTERVAL` | 通知扫描间隔 | 10m |
 | `TASK_MANAGER_MCP_ENABLED` | 是否启用 MCP | true |
 | `TASK_MANAGER_MCP_PATH` | MCP 路由路径 | /mcp |
 | `TASK_MANAGER_MCP_EXTERNAL_URL` | MCP 对外地址（用于配置端点自动生成 URL） | 自动检测 |
+
+## TODO 评分字段
+
+创建和更新 TODO 的 REST API、MCP 工具均接受 `importance`（重要程度）和 `difficulty`（困难程度），返回值也包含这两个字段。两者为 `[0,1]` 浮点数，0 表示最不重要／最不困难，1 表示最重要／最困难。创建时省略默认为 0.5；更新时省略保持原值，传 0 可重置。原有 `priority` 字段独立保留。Web 和小程序均支持显示和编辑评分。
+
+## 测试
+
+```bash
+cd ops-timer-backend
+go test ./...
+# 使用专用测试数据库；测试在随机 schema 中建表，结束后删除该 schema
+TASK_MANAGER_TEST_DATABASE_DSN='postgres://taskmgr:taskmgr@localhost:5432/taskmgr?sslmode=disable' go test ./... -count=1
+cd ../ops-timer-frontend
+npm ci
+npm run build
+```
+
+## 浏览器登录与待办坐标图
+
+Web 登录支持“记住我（14 天）”，默认不勾选。勾选后使用固定 14 天有效期的 HttpOnly、SameSite=Strict 会话 Cookie；不勾选则使用浏览器会话 Cookie，服务端最长有效期 24 小时。浏览器的“恢复上次会话”功能可能保留会话 Cookie，公共设备请主动退出。密码与长期令牌不存入 localStorage。会话凭据使用随机 256 位值，数据库仅保存其 SHA-256 摘要。退出会撤销当前会话；修改密码后所有浏览器会话立即失效。旧版 JWT/API Token 客户端仍使用原有认证方式。
+
+生产环境必须通过 HTTPS 访问，`TASK_MANAGER_AUTH_COOKIE_SECURE` 默认为 `true`。本地 HTTP 开发可设为 `false`（`env.example` 已配置）。推荐前端与 `/api` 同源反向代理；跨源且同站部署须在 `TASK_MANAGER_SERVER_CORS_ORIGINS` 中列出精确来源，不支持凭据请求的通配来源或跨站 Cookie。浏览器请求需 `X-Taskmgr-Browser: 1`，后端验证 Origin，防止 CSRF。CNB 默认使用生产 Secure Cookie，无需额外配置。
+
+TODO 坐标图使用 [interact.js](https://interactjs.io/docs/draggable/)。横轴重要程度、纵轴困难程度，范围均为 0～1，中心交点是 (0.5, 0.5)，新建 TODO 默认位于中心。图中显示当前筛选当前页的任务，拖动预览、松手保存，失败恢复原位置。通过选择器选取重叠圆点；方向键每次调整 0.01，Enter 保存，Esc 取消。
+
+浏览器端到端测试（使用专用测试数据库运行后端，管理员密码默认 `BrowserTestPassword123`，可通过 `TASK_MANAGER_E2E_PASSWORD` 指定；后端本地 HTTP 配置 `TASK_MANAGER_AUTH_COOKIE_SECURE=false`）：
+
+```bash
+cd ops-timer-frontend
+npm ci
+npx playwright install chromium
+# 后端已在 8080 运行时可直接执行；测试自动启动 5177 端口的 Vite
+npm run test:e2e
+# 若后端使用其他端口：
+TASK_MANAGER_DEV_BACKEND_URL=http://127.0.0.1:18087 npm run test:e2e
+```
+
+测试覆盖持久 Cookie 恢复登录、未勾选时的会话 Cookie、退出撤销，以及坐标图拖动保存、键盘微调、失败回退和移动端布局。后端 PostgreSQL 集成测试另覆盖 14 天有效期、Cookie 安全属性、CSRF 拦截、到期失效和改密后所有浏览器会话失效。

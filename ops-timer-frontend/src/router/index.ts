@@ -84,8 +84,9 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  await auth.initialize()
 
   // 用 matched 检查整条路由链，只要链中有任意一条显式标记 requiresAuth: false，就视为公开路由
   const isPublicRoute = to.matched.some(record => record.meta.requiresAuth === false)

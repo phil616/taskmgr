@@ -16,6 +16,8 @@ type Todo struct {
 	Description string     `gorm:"type:text" json:"description"`
 	Status      string     `gorm:"size:20;not null;default:pending" json:"status"`
 	Priority    string     `gorm:"size:10;not null;default:normal" json:"priority"`
+	Importance  float64    `gorm:"not null;default:0;check:todo_importance_range,importance >= 0 AND importance <= 1" json:"importance"`
+	Difficulty  float64    `gorm:"not null;default:0;check:todo_difficulty_range,difficulty >= 0 AND difficulty <= 1" json:"difficulty"`
 	DueDate     *time.Time `gorm:"type:date" json:"due_date"`
 	SortOrder   int        `gorm:"default:0" json:"sort_order"`
 	CompletedAt *time.Time `json:"completed_at"`

@@ -13,7 +13,7 @@ func CORSMiddleware(allowedOrigins []string) gin.HandlerFunc {
 
 		allowed := false
 		for _, o := range allowedOrigins {
-			if o == "*" || o == origin {
+			if o == origin {
 				allowed = true
 				break
 			}
@@ -21,7 +21,7 @@ func CORSMiddleware(allowedOrigins []string) gin.HandlerFunc {
 
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", strings.Join([]string{
-			"Authorization", "Content-Type", "X-API-Token", "Accept",
+			"Authorization", "Content-Type", "X-API-Token", "Accept", "X-Taskmgr-Browser",
 		}, ", "))
 		c.Header("Access-Control-Max-Age", "86400")
 

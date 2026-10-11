@@ -1,6 +1,6 @@
 <template>
   <v-layout>
-    <v-navigation-drawer v-model="drawer" :rail="rail">
+    <v-navigation-drawer v-model="drawer" :rail="mdAndUp && rail" :temporary="!mdAndUp">
       <v-list-item
         prepend-icon="mdi-timer-cog-outline"
         title="任务管理器"
@@ -52,7 +52,7 @@
 
         <v-menu>
           <template v-slot:activator="{ props }">
-            <v-btn icon v-bind="props">
+            <v-btn icon v-bind="props" aria-label="账户菜单">
               <v-avatar color="primary" size="32">
                 <span class="text-body-2 font-weight-bold text-white">
                   {{ auth.user?.display_name?.charAt(0) || 'A' }}
@@ -82,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDisplay } from 'vuetify'
 import { useAuthStore } from '@/stores/auth'
@@ -96,6 +96,7 @@ const notificationStore = useNotificationStore()
 
 const drawer = ref(true)
 const rail = ref(false)
+watch(mdAndUp, value => { drawer.value = value })
 
 // 小屏幕默认收起抽屉，同时启动通知轮询
 onMounted(() => {
@@ -135,8 +136,12 @@ const currentTitle = computed(() => {
 })
 
 async function handleLogout() {
-  await auth.logout()
-  router.push('/login')
+  try {
+    await auth.logout()
+    router.push('/login')
+  } catch {
+    window.alert('退出失败，请检查网络并重试。此设备的登录会话尚未撤销。')
+  }
 }
 
 onUnmounted(() => {

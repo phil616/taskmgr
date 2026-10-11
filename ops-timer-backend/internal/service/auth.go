@@ -23,6 +23,7 @@ var (
 )
 
 type AuthService struct {
+	sessionRepo      *repository.BrowserSessionRepository
 	userRepo         *repository.UserRepository
 	loginAttemptRepo *repository.LoginAttemptRepository
 	jwtManager       *auth.JWTManager
@@ -31,19 +32,21 @@ type AuthService struct {
 
 func NewAuthService(
 	userRepo *repository.UserRepository,
+	sessionRepo *repository.BrowserSessionRepository,
 	loginAttemptRepo *repository.LoginAttemptRepository,
 	jwtManager *auth.JWTManager,
 	cfg *config.AuthConfig,
 ) *AuthService {
 	return &AuthService{
 		userRepo:         userRepo,
+		sessionRepo:      sessionRepo,
 		loginAttemptRepo: loginAttemptRepo,
 		jwtManager:       jwtManager,
 		cfg:              cfg,
 	}
 }
 
-func (s *AuthService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
+func (s *AuthService) authenticate(req *dto.LoginRequest) (*model.User, error) {
 	attempt, err := s.loginAttemptRepo.Get(req.Username)
 	if err == nil && attempt.Count >= s.cfg.LoginLockAttempts {
 		if time.Since(attempt.LockedAt) < time.Duration(s.cfg.LoginLockMinutes)*time.Minute {
@@ -65,6 +68,14 @@ func (s *AuthService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
 
 	_ = s.loginAttemptRepo.Reset(req.Username)
 
+	return user, nil
+}
+
+func (s *AuthService) Login(req *dto.LoginRequest) (*dto.LoginResponse, error) {
+	user, err := s.authenticate(req)
+	if err != nil {
+		return nil, err
+	}
 	token, err := s.jwtManager.GenerateToken(user.ID, user.Username)
 	if err != nil {
 		return nil, err

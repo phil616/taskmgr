@@ -1,11 +1,11 @@
 import { post, get, put } from './client'
-import type { LoginResponse, User, TokenResponse } from '@/types'
+import type { User, TokenResponse } from '@/types'
 
 export const authApi = {
-  login: (username: string, password: string) =>
-    post<LoginResponse>('/auth/login', { username, password }),
+  login: (username: string, password: string, remember_me: boolean) =>
+    post<{ user: User; expires_at: string }>('/auth/browser/login', { username, password, remember_me }),
 
-  logout: () => post('/auth/logout'),
+  logout: () => post('/auth/browser/logout'),
 
   getProfile: () => get<User>('/auth/profile'),
 

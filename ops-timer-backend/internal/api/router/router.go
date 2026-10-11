@@ -98,10 +98,13 @@ func (r *Router) Setup() *gin.Engine {
 
 	// Public routes
 	api.POST("/auth/login", r.authHandler.Login)
+	browser := api.Group("/auth/browser", middleware.BrowserRequestGuard(r.corsOrigins))
+	browser.POST("/login", r.authHandler.BrowserLogin)
+	browser.POST("/logout", r.authHandler.BrowserLogout)
 
 	// Protected routes
 	protected := api.Group("")
-	protected.Use(middleware.AuthMiddleware(r.jwtManager, r.authService))
+	protected.Use(middleware.AuthMiddleware(r.jwtManager, r.authService, r.corsOrigins))
 
 	// Auth
 	protected.POST("/auth/logout", r.authHandler.Logout)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	"ops-timer-backend/internal/api/handler"
 	"ops-timer-backend/internal/api/router"
@@ -18,8 +17,8 @@ import (
 	"ops-timer-backend/internal/repository"
 	"ops-timer-backend/internal/service"
 
-	"github.com/glebarez/sqlite"
 	"go.uber.org/zap"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -71,7 +70,7 @@ func main() {
 	secretRepo := repository.NewSecretRepository(db)
 	secretAuditRepo := repository.NewSecretAuditLogRepository(db)
 
-	// Auth — JWT blacklist backed by SQLite
+	// Auth — JWT blacklist backed by PostgreSQL
 	tokenStore := repository.NewTokenBlacklistStoreAdapter(revokedTokenRepo)
 	jwtManager := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.JWTExpiryHours, tokenStore)
 
@@ -83,8 +82,8 @@ func main() {
 		zapLogger.Info("SMTP 邮件通知未配置，跳过邮件功能")
 	}
 
-	// Services — login attempts backed by SQLite
-	authService := service.NewAuthService(userRepo, loginAttemptRepo, jwtManager, &cfg.Auth)
+	// Services — login attempts backed by PostgreSQL
+	authService := service.NewAuthService(userRepo, repository.NewBrowserSessionRepository(db), loginAttemptRepo, jwtManager, &cfg.Auth)
 	unitService := service.NewUnitService(unitRepo, unitLogRepo)
 	projectService := service.NewProjectService(projectRepo, unitRepo, txRepo)
 	todoService := service.NewTodoService(todoRepo, todoGroupRepo)
@@ -199,14 +198,7 @@ func initLogger(cfg config.LogConfig) *zap.Logger {
 }
 
 func initDatabase(cfg config.DatabaseConfig) *gorm.DB {
-	dir := filepath.Dir(cfg.DSN)
-	if dir != "." {
-		if err := os.MkdirAll(dir, 0750); err != nil {
-			log.Fatalf("创建数据目录失败: %v", err)
-		}
-	}
-
-	db, err := gorm.Open(sqlite.Open(cfg.DSN), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(cfg.DSN), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	if err != nil {
@@ -218,6 +210,7 @@ func initDatabase(cfg config.DatabaseConfig) *gorm.DB {
 func autoMigrate(db *gorm.DB) {
 	err := db.AutoMigrate(
 		&model.User{},
+		&model.BrowserSession{},
 		&model.Project{},
 		&model.Unit{},
 		&model.UnitLog{},

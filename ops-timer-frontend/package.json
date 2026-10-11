@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@mdi/font": "^7.4.0",
@@ -20,6 +21,7 @@
     "@vueuse/core": "^11.0.0",
     "axios": "^1.15.0",
     "dayjs": "^1.11.0",
+    "interactjs": "^1.10.28",
     "md-editor-v3": "^4.20.0",
     "pinia": "^2.2.0",
     "preact": "^10.29.0",
@@ -29,6 +31,7 @@
     "vuetify": "^3.7.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@vitejs/plugin-vue": "^5.1.0",
     "sass": "^1.79.0",
     "typescript": "^5.5.0",

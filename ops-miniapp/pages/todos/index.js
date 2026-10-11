@@ -18,7 +18,7 @@ Page({
     // 新建/编辑 Todo 弹窗
     todoDialogVisible: false,
     editingTodo: null,
-    todoForm: { title: '', description: '', priority: 'normal', due_date: '', group_id: '', groupName: '' },
+    todoForm: { title: '', description: '', priority: 'normal', importance: 0.5, difficulty: 0.5, due_date: '', group_id: '', groupName: '' },
 
     // 新建分组弹窗
     groupDialogVisible: false,
@@ -136,7 +136,7 @@ Page({
     this.setData({
       todoDialogVisible: true,
       editingTodo: null,
-      todoForm: { title: '', description: '', priority: 'normal', due_date: '', group_id: '', groupName: '' },
+      todoForm: { title: '', description: '', priority: 'normal', importance: 0.5, difficulty: 0.5, due_date: '', group_id: '', groupName: '' },
     });
   },
 
@@ -150,6 +150,8 @@ Page({
         title: todo.title,
         description: todo.description || '',
         priority: todo.priority || 'normal',
+        importance: todo.importance,
+        difficulty: todo.difficulty,
         due_date: todo.due_date ? todo.due_date.slice(0, 10) : '',
         group_id: todo.group_id || '',
         groupName: grpObj ? grpObj.name : '',
@@ -164,6 +166,8 @@ Page({
   onTodoTitleInput(e) { this.setData({ 'todoForm.title': e.detail.value }); },
   onTodoDescInput(e) { this.setData({ 'todoForm.description': e.detail.value }); },
   onTodoPriorityChange(e) { this.setData({ 'todoForm.priority': e.detail.value }); },
+  onTodoImportanceChange(e) { this.setData({ 'todoForm.importance': e.detail.value / 100 }); },
+  onTodoDifficultyChange(e) { this.setData({ 'todoForm.difficulty': e.detail.value / 100 }); },
   onTodoDueDateChange(e) { this.setData({ 'todoForm.due_date': e.detail.value }); },
   onTodoGroupChange(e) {
     const grp = this.data.groups[e.detail.value];

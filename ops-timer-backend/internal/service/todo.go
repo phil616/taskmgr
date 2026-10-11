@@ -32,6 +32,8 @@ func (s *TodoService) Create(req *dto.CreateTodoRequest) (*dto.TodoResponse, err
 		Description: req.Description,
 		Status:      model.TodoStatusPending,
 		Priority:    model.PriorityNormal,
+		Importance:  0.5,
+		Difficulty:  0.5,
 	}
 
 	if req.Status != "" {
@@ -39,6 +41,12 @@ func (s *TodoService) Create(req *dto.CreateTodoRequest) (*dto.TodoResponse, err
 	}
 	if req.Priority != "" {
 		todo.Priority = req.Priority
+	}
+	if req.Importance != nil {
+		todo.Importance = *req.Importance
+	}
+	if req.Difficulty != nil {
+		todo.Difficulty = *req.Difficulty
 	}
 	if req.DueDate != nil {
 		t, err := timeutil.ParseDate(*req.DueDate)
@@ -118,6 +126,12 @@ func (s *TodoService) Update(id string, req *dto.UpdateTodoRequest) (*dto.TodoRe
 	}
 	if req.GroupID != nil {
 		todo.GroupID = req.GroupID
+	}
+	if req.Importance != nil {
+		todo.Importance = *req.Importance
+	}
+	if req.Difficulty != nil {
+		todo.Difficulty = *req.Difficulty
 	}
 	if req.DueDate != nil {
 		t, err := timeutil.ParseDate(*req.DueDate)
@@ -241,6 +255,8 @@ func (s *TodoService) toResponse(todo *model.Todo) *dto.TodoResponse {
 		Description: todo.Description,
 		Status:      todo.Status,
 		Priority:    todo.Priority,
+		Importance:  todo.Importance,
+		Difficulty:  todo.Difficulty,
 		DueDate:     timeutil.NormalizePtr(todo.DueDate),
 		SortOrder:   todo.SortOrder,
 		CompletedAt: timeutil.NormalizePtr(todo.CompletedAt),

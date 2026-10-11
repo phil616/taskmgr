@@ -3,23 +3,27 @@ package dto
 import "time"
 
 type CreateTodoRequest struct {
-	GroupID     *string `json:"group_id"`
-	Title       string  `json:"title" binding:"required,max=256"`
-	Description string  `json:"description"`
-	Status      string  `json:"status" binding:"omitempty,oneof=pending in_progress done cancelled"`
-	Priority    string  `json:"priority" binding:"omitempty,oneof=low normal high critical"`
-	DueDate     *string `json:"due_date"`
-	SortOrder   *int    `json:"sort_order"`
+	GroupID     *string  `json:"group_id"`
+	Title       string   `json:"title" binding:"required,max=256"`
+	Description string   `json:"description"`
+	Status      string   `json:"status" binding:"omitempty,oneof=pending in_progress done cancelled"`
+	Priority    string   `json:"priority" binding:"omitempty,oneof=low normal high critical"`
+	Importance  *float64 `json:"importance" binding:"omitempty,gte=0,lte=1"`
+	Difficulty  *float64 `json:"difficulty" binding:"omitempty,gte=0,lte=1"`
+	DueDate     *string  `json:"due_date"`
+	SortOrder   *int     `json:"sort_order"`
 }
 
 type UpdateTodoRequest struct {
-	GroupID     *string `json:"group_id"`
-	Title       string  `json:"title" binding:"omitempty,max=256"`
-	Description *string `json:"description"`
-	Status      string  `json:"status" binding:"omitempty,oneof=pending in_progress done cancelled"`
-	Priority    string  `json:"priority" binding:"omitempty,oneof=low normal high critical"`
-	DueDate     *string `json:"due_date"`
-	SortOrder   *int    `json:"sort_order"`
+	GroupID     *string  `json:"group_id"`
+	Title       string   `json:"title" binding:"omitempty,max=256"`
+	Description *string  `json:"description"`
+	Status      string   `json:"status" binding:"omitempty,oneof=pending in_progress done cancelled"`
+	Priority    string   `json:"priority" binding:"omitempty,oneof=low normal high critical"`
+	Importance  *float64 `json:"importance" binding:"omitempty,gte=0,lte=1"`
+	Difficulty  *float64 `json:"difficulty" binding:"omitempty,gte=0,lte=1"`
+	DueDate     *string  `json:"due_date"`
+	SortOrder   *int     `json:"sort_order"`
 }
 
 type UpdateTodoStatusRequest struct {
@@ -38,6 +42,8 @@ type TodoResponse struct {
 	Description string     `json:"description"`
 	Status      string     `json:"status"`
 	Priority    string     `json:"priority"`
+	Importance  float64    `json:"importance"`
+	Difficulty  float64    `json:"difficulty"`
 	DueDate     *time.Time `json:"due_date"`
 	SortOrder   int        `json:"sort_order"`
 	CompletedAt *time.Time `json:"completed_at"`

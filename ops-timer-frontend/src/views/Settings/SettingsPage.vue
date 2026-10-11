@@ -284,7 +284,9 @@ async function changePassword() {
   passwordMsg.value = ''
   try {
     await authApi.changePassword(passwordForm.old_password, passwordForm.new_password)
-    passwordMsg.value = '密码修改成功'
+    auth.clearAuth()
+    window.location.assign('/login')
+    passwordMsg.value = '密码修改成功，请重新登录'
     passwordSuccess.value = true
     Object.assign(passwordForm, { old_password: '', new_password: '', confirm_password: '' })
   } catch (e: any) {

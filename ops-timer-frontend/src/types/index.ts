@@ -135,6 +135,8 @@ export interface Todo {
   description: string
   status: TodoStatus
   priority: Priority
+  importance: number
+  difficulty: number
   due_date: string | null
   sort_order: number
   completed_at: string | null

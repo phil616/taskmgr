@@ -5,6 +5,7 @@ import (
 	"ops-timer-backend/internal/pkg/email"
 	"ops-timer-backend/internal/pkg/response"
 	"ops-timer-backend/internal/service"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -44,7 +45,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	if exists {
 		h.authService.Logout(token.(string))
 	}
-	response.Success(c, nil)
+	h.BrowserLogout(c)
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {
@@ -89,6 +90,8 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		}
 		return
 	}
+
+	h.setBrowserCookie(c, "", false, time.Time{})
 
 	// 密码修改成功后撤销当前 JWT，强制重新登录
 	if token, exists := c.Get("token"); exists {

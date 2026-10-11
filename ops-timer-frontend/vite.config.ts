@@ -17,12 +17,12 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
+        target: process.env.TASK_MANAGER_DEV_BACKEND_URL || 'http://localhost:8080',
+        changeOrigin: false,
       },
       '/health': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
+        target: process.env.TASK_MANAGER_DEV_BACKEND_URL || 'http://localhost:8080',
+        changeOrigin: false,
       },
     },
   },

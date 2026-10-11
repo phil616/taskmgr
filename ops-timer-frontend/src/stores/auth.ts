@@ -4,41 +4,46 @@ import type { User } from '@/types'
 import { authApi } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref(localStorage.getItem('token') || '')
-  const user = ref<User | null>(JSON.parse(localStorage.getItem('user') || 'null'))
+  // Retire the old script-readable credentials. Authentication now uses an HttpOnly cookie.
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  const user = ref<User | null>(null)
+  const initialized = ref(false)
+  const isLoggedIn = computed(() => !!user.value)
+  let initialization: Promise<void> | null = null
 
-  const isLoggedIn = computed(() => !!token.value)
-
-  async function login(username: string, password: string) {
-    const resp = await authApi.login(username, password)
-    token.value = resp.data.token
+  async function login(username: string, password: string, rememberMe = false) {
+    const resp = await authApi.login(username, password, rememberMe)
     user.value = resp.data.user
-    localStorage.setItem('token', resp.data.token)
-    localStorage.setItem('user', JSON.stringify(resp.data.user))
+    initialized.value = true
   }
 
-  /** 仅清理本地状态，不调用后端接口（供 401 拦截器等场景使用） */
   function clearAuth() {
-    token.value = ''
     user.value = null
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    initialized.value = true
   }
 
   async function logout() {
-    try {
-      await authApi.logout()
-    } catch {
-      // ignore
-    }
+    // Do not report success when the server could not revoke the persistent cookie.
+    await authApi.logout()
     clearAuth()
   }
 
   async function fetchProfile() {
     const resp = await authApi.getProfile()
     user.value = resp.data
-    localStorage.setItem('user', JSON.stringify(resp.data))
   }
 
-  return { token, user, isLoggedIn, login, logout, clearAuth, fetchProfile }
+  async function initialize() {
+    if (initialized.value) return
+    if (!initialization) {
+      initialization = fetchProfile().then(() => { initialized.value = true }).catch((error) => {
+        if (error.response?.status === 401) clearAuth()
+        // A network failure isn't proof that the cookie expired; permit a later retry.
+      }).finally(() => { initialization = null })
+    }
+    await initialization
+  }
+
+  return { user, isLoggedIn, initialized, initialize, login, logout, clearAuth, fetchProfile }
 })

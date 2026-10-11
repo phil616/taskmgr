@@ -111,3 +111,5 @@ ops-timer-backend/server
 logs/
 
 bin/
+
+thesis/

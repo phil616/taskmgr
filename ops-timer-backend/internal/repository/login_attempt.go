@@ -34,7 +34,7 @@ func (r *LoginAttemptRepository) Increment(username string, lockThreshold int) e
 			attempt = model.LoginAttempt{Username: username, Count: 1}
 			return tx.Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "username"}},
-				DoUpdates: clause.Assignments(map[string]interface{}{"count": gorm.Expr("count + 1")}),
+				DoUpdates: clause.Assignments(map[string]interface{}{"count": gorm.Expr("login_attempts.count + 1")}),
 			}).Create(&attempt).Error
 		}
 		if err != nil {

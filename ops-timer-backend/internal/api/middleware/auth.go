@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthMiddleware(jwtManager *auth.JWTManager, authService *service.AuthService) gin.HandlerFunc {
+func AuthMiddleware(jwtManager *auth.JWTManager, authService *service.AuthService, allowedOrigins []string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Try JWT first
 		authHeader := c.GetHeader("Authorization")
@@ -34,6 +34,20 @@ func AuthMiddleware(jwtManager *auth.JWTManager, authService *service.AuthServic
 			if err == nil {
 				c.Set("user_id", user.ID)
 				c.Set("username", user.Username)
+				c.Next()
+				return
+			}
+		}
+
+		if token, err := c.Cookie(service.BrowserCookieName); err == nil {
+			if !browserRequestAllowed(c, allowedOrigins) {
+				c.AbortWithStatus(403)
+				return
+			}
+			if user, err := authService.ValidateBrowserSession(token); err == nil {
+				c.Set("user_id", user.ID)
+				c.Set("username", user.Username)
+				c.Header("Cache-Control", "no-store")
 				c.Next()
 				return
 			}

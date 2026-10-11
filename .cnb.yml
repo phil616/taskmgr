@@ -84,60 +84,16 @@ main:
               cd /root/
               docker login -u ${CNB_TOKEN_USER_NAME} -p "${DEVOPS_TASKMGR_CNB_DEPLOY_TOKEN}" ${CNB_DOCKER_REGISTRY}
 
-              mkdir -p /root/ops-timer-data
-
               docker stop ops-task-manager || true
               docker rm   ops-task-manager || true
 
-              docker run -d --network host --name ops-task-manager \
+              docker run -d --name ops-task-manager \
                 --pull=always \
                 --restart unless-stopped \
-                -v /root/ops-timer-data:/app/data \
-                -e TASK_MANAGER_SERVER_HOST=0.0.0.0 \
-                -e TASK_MANAGER_SERVER_PORT=5003 \
-                -e TASK_MANAGER_SERVER_CORS_ORIGINS="${DEVOPS_OPS_TIMER_CORS_ORIGINS}" \
-                -e TASK_MANAGER_DATABASE_DRIVER=sqlite \
-                -e TASK_MANAGER_DATABASE_DSN=./data/taskmgr.db \
-                -e TASK_MANAGER_AUTH_JWT_SECRET="${DEVOPS_OPS_TIMER_JWT_SECRET}" \
-                -e TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS=24 \
-                -e TASK_MANAGER_MCP_ENABLED=true \
-                -e TASK_MANAGER_MCP_PATH=/mcp \
-                -e TASK_MANAGER_SMTP_HOST="${DEVOPS_OPS_TIMER_SMTP_HOST}" \
-                -e TASK_MANAGER_SMTP_PORT=587 \
-                -e TASK_MANAGER_SMTP_USERNAME="${DEVOPS_OPS_TIMER_SMTP_USERNAME}" \
-                -e TASK_MANAGER_SMTP_PASSWORD="${DEVOPS_OPS_TIMER_SMTP_PASSWORD}" \
-                -e TASK_MANAGER_SMTP_FROM="${DEVOPS_OPS_TIMER_SMTP_FROM}" \
-                -e TASK_MANAGER_LOG_LEVEL=info \
-                -e TASK_MANAGER_LOG_FORMAT=json \
+                --env-file /run/baoctl/phil616-taskmgr.env \
                 ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:prod
 
               repo="${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}"
               running_img_id="\$(docker inspect -f '{{.Image}}' ops-task-manager || true)"
               docker images "\${repo}" -q | grep -v "\${running_img_id#sha256:}" | xargs -r docker rmi -f || true
               docker image prune -f || true
-              
-$:
-  # 自动生成的CodeWiki
-  tag_push:
-    - services:
-        - docker
-      docker:
-        volumes:
-          - /data/codewiki/${CNB_REPO_SLUG}:data
-      stages:
-        - name: 生成 Code Wiki
-          # 当仓库比较大时，codewiki 用时会超过流水线默认的1小时，导致流水线自动结束。所以手动指定流水线超时时间
-          timeout: 2h
-          image: cnbcool/codewiki:latest
-          settings:
-            git_doc_dir: /data/codewiki/${CNB_REPO_SLUG}
-
-        - name: 发送CodeWiki数据
-          imports:
-            - https://cnb.cool/greenshadecapital/dreamreflex/assets-secrets/-/blob/main/api-server.yml
-          script: |
-            tar -C /data/codewiki/${CNB_REPO_SLUG} -czf - . \
-            | curl --fail --retry 3 \
-                -H "X-API-Key: ${UPLOAD_API_KEY}" \
-                --upload-file - \
-                https://api.dreamreflex.com/api/upload/dir-$(date +%F).tar.gz

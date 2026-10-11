@@ -14,8 +14,6 @@ ENV TZ=Asia/Shanghai
 WORKDIR /app
 COPY --from=builder /build/opstaskmanager .
 
-RUN mkdir -p /app/data
-
 EXPOSE 5003
 
 # 通过 TASK_MANAGER_* 环境变量或 .env 文件注入配置（见 README）

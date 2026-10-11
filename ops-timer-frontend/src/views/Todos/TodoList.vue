@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="d-flex align-center mb-4">
+    <div class="d-flex align-center flex-wrap ga-2 mb-4">
       <h2 class="text-h5 font-weight-bold">待办事项</h2>
       <v-spacer />
       <v-btn variant="outlined" class="mr-2" prepend-icon="mdi-folder-plus" @click="showGroupDialog = true">
@@ -71,6 +71,8 @@
           </v-row>
         </v-card>
 
+        <TodoMatrix :todos="todos" :disabled="loading" @saved="onScoresSaved" />
+
         <v-card class="rounded-lg">
           <v-list v-if="todos.length > 0">
             <v-list-item v-for="todo in todos" :key="todo.id" class="py-2">
@@ -98,6 +100,7 @@
                 <v-chip size="x-small" :color="getStatusColor(todo.status)" variant="flat" class="mr-1">
                   {{ getStatusLabel(todo.status) }}
                 </v-chip>
+                <span class="text-caption mr-2">重要程度: {{ todo.importance }} · 困难程度: {{ todo.difficulty }}</span>
                 <span v-if="todo.due_date" class="text-caption">截止: {{ formatDate(todo.due_date) }}</span>
               </v-list-item-subtitle>
               <template v-slot:append>
@@ -133,6 +136,9 @@
               <v-text-field v-model="todoForm.due_date" label="截止日期" type="date" />
             </v-col>
           </v-row>
+          <v-slider v-model="todoForm.importance" :min="0" :max="1" :step="0.01" thumb-label="always" label="重要程度" />
+          <v-slider v-model="todoForm.difficulty" :min="0" :max="1" :step="0.01" thumb-label="always" label="困难程度" />
+          <p class="text-caption mb-4">0 表示最不重要／最不困难，1 表示最重要／最困难</p>
           <v-select v-model="todoForm.group_id" :items="groupOptions" label="分组" clearable />
         </v-card-text>
         <v-divider />
@@ -167,6 +173,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import type { Todo, TodoGroup } from '@/types'
+import TodoMatrix from '@/components/TodoMatrix.vue'
 import { todoApi } from '@/api/todos'
 import { formatDate, getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel } from '@/utils/time'
 
@@ -185,7 +192,7 @@ const showTodoDialog = ref(false)
 const showGroupDialog = ref(false)
 const editingTodo = ref<Todo | null>(null)
 
-const todoForm = reactive({ title: '', description: '', priority: 'normal', due_date: '', group_id: '' as string | null })
+const todoForm = reactive({ title: '', description: '', priority: 'normal', importance: 0.5, difficulty: 0.5, due_date: '', group_id: '' as string | null })
 const groupForm = reactive({ name: '', color: '' })
 
 const statusOptions = [
@@ -218,6 +225,11 @@ async function fetchTodos() {
   } catch { /* ignore */ } finally { loading.value = false }
 }
 
+function onScoresSaved(todo: Todo) {
+  const index = todos.value.findIndex(item => item.id === todo.id)
+  if (index !== -1) todos.value[index] = todo
+}
+
 async function fetchGroups() {
   try { const resp = await todoApi.listGroups(); groups.value = resp.data || [] } catch { /* ignore */ }
 }
@@ -239,6 +251,7 @@ function editTodo(todo: Todo) {
   editingTodo.value = todo
   Object.assign(todoForm, {
     title: todo.title, description: todo.description,
+    importance: todo.importance, difficulty: todo.difficulty,
     priority: todo.priority, due_date: todo.due_date?.slice(0, 10) || '',
     group_id: todo.group_id,
   })
@@ -248,7 +261,7 @@ function editTodo(todo: Todo) {
 function closeTodoDialog() {
   showTodoDialog.value = false
   editingTodo.value = null
-  Object.assign(todoForm, { title: '', description: '', priority: 'normal', due_date: '', group_id: null })
+  Object.assign(todoForm, { title: '', description: '', priority: 'normal', importance: 0.5, difficulty: 0.5, due_date: '', group_id: null })
 }
 
 async function saveTodo() {

@@ -25,11 +25,11 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	Driver string
-	DSN    string
+	DSN string
 }
 
 type AuthConfig struct {
+	CookieSecure      bool
 	JWTSecret         string
 	JWTExpiryHours    int
 	LoginLockAttempts int
@@ -115,10 +115,10 @@ func Load() (*Config, error) {
 			CorsOrigins: corsOrigins,
 		},
 		Database: DatabaseConfig{
-			Driver: env("TASK_MANAGER_DATABASE_DRIVER", "sqlite"),
-			DSN:    env("TASK_MANAGER_DATABASE_DSN", "./data/task_manager.db"),
+			DSN: env("TASK_MANAGER_DATABASE_DSN", "postgres://taskmgr:taskmgr@localhost:5432/taskmgr?sslmode=disable"),
 		},
 		Auth: AuthConfig{
+			CookieSecure:      envBool("TASK_MANAGER_AUTH_COOKIE_SECURE", true),
 			JWTSecret:         env("TASK_MANAGER_AUTH_JWT_SECRET", ""),
 			JWTExpiryHours:    envInt("TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS", 24),
 			LoginLockAttempts: envInt("TASK_MANAGER_AUTH_LOGIN_LOCK_ATTEMPTS", 5),

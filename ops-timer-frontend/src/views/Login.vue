@@ -13,6 +13,7 @@
             <v-text-field
               v-model="username"
               label="用户名"
+              autocomplete="username"
               prepend-inner-icon="mdi-account"
               :rules="[rules.required]"
               :disabled="loading"
@@ -20,6 +21,7 @@
             <v-text-field
               v-model="password"
               label="密码"
+              autocomplete="current-password"
               prepend-inner-icon="mdi-lock"
               :type="showPassword ? 'text' : 'password'"
               :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
@@ -27,6 +29,9 @@
               :rules="[rules.required]"
               :disabled="loading"
             />
+
+            <v-checkbox v-model="rememberMe" label="记住我（14 天）" :disabled="loading" hide-details />
+            <p class="text-caption text-medium-emphasis mb-4">仅在个人设备上勾选，公共设备请勿使用。</p>
 
             <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-4">
               {{ error }}
@@ -61,6 +66,7 @@ const auth = useAuthStore()
 const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
+const rememberMe = ref(false)
 const loading = ref(false)
 const error = ref('')
 
@@ -73,9 +79,10 @@ async function handleLogin() {
   loading.value = true
   error.value = ''
   try {
-    await auth.login(username.value, password.value)
+    await auth.login(username.value, password.value, rememberMe.value)
+    password.value = ''
     const redirect = route.query.redirect as string | undefined
-    router.push(redirect && redirect !== '/login' ? redirect : '/dashboard')
+    router.push(redirect?.startsWith('/') && !redirect.startsWith('//') && redirect !== '/login' ? redirect : '/dashboard')
   } catch (e: any) {
     error.value = e.response?.data?.message || '登录失败，请检查用户名和密码'
   } finally {

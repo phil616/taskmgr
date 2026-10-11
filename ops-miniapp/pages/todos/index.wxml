@@ -92,6 +92,7 @@
           </view>
           <view class="todo-body">
             <text class="todo-title {{item.status === 'done' ? 'todo-done' : ''}}">{{item.title}}</text>
+            <text class="todo-due">重要程度: {{item.importance}} · 困难程度: {{item.difficulty}}</text>
             <view class="todo-meta">
               <view class="meta-tag" style="background:{{item.priorityColor}}20;">
                 <text style="color:{{item.priorityColor}};font-size:20rpx;">{{item.priorityLabel}}</text>
@@ -165,6 +166,14 @@
               </view>
             </picker>
           </view>
+        </view>
+        <view class="field-wrap">
+          <text class="field-label">重要程度: {{todoForm.importance}}（0 最不重要，1 最重要）</text>
+          <slider min="0" max="100" step="1" value="{{todoForm.importance * 100}}" bindchange="onTodoImportanceChange" />
+        </view>
+        <view class="field-wrap">
+          <text class="field-label">困难程度: {{todoForm.difficulty}}（0 最不困难，1 最困难）</text>
+          <slider min="0" max="100" step="1" value="{{todoForm.difficulty * 100}}" bindchange="onTodoDifficultyChange" />
         </view>
         <view class="field-wrap" wx:if="{{groups.length > 0}}">
           <text class="field-label">分组</text>
