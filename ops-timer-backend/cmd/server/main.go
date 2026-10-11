@@ -24,20 +24,15 @@ import (
 )
 
 func main() {
-	initAdmin := flag.Bool("init-admin", false, "初始化/重置管理员账户")
-	adminUser := flag.String("admin-user", "admin", "管理员用户名")
-	adminPassEnv := os.Getenv("TASK_MANAGER_INIT_ADMIN_PASSWORD")
-	adminPass := flag.String("admin-pass", adminPassEnv, "初始管理员密码（建议通过 TASK_MANAGER_INIT_ADMIN_PASSWORD 环境变量传入）")
-	flag.Parse()
-
-	if *adminPass == "" {
-		*adminPass = "Admin@12345"
-	}
-
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
+	initAdmin := flag.Bool("init-admin", false, "确保初始管理员存在后退出（不会重置已有账户）")
+	adminUser := flag.String("admin-user", cfg.InitAdmin.Username, "初始管理员用户名（可通过 TASK_MANAGER_INIT_ADMIN_USERNAME 设置）")
+	adminPass := flag.String("admin-pass", cfg.InitAdmin.Password, "初始管理员密码（建议通过 TASK_MANAGER_INIT_ADMIN_PASSWORD 设置）")
+	flag.Parse()
+
 	if err := timeutil.SetLocalTimezone(); err != nil {
 		log.Fatalf("设置时区失败: %v", err)
 	}

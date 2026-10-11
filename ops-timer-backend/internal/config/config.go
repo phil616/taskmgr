@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	InitAdmin InitAdminConfig
 	Server    ServerConfig
 	Database  DatabaseConfig
 	Auth      AuthConfig
@@ -26,6 +27,11 @@ type ServerConfig struct {
 
 type DatabaseConfig struct {
 	DSN string
+}
+
+type InitAdminConfig struct {
+	Username string
+	Password string
 }
 
 type AuthConfig struct {
@@ -109,6 +115,10 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
+		InitAdmin: InitAdminConfig{
+			Username: env("TASK_MANAGER_INIT_ADMIN_USERNAME", "admin"),
+			Password: env("TASK_MANAGER_INIT_ADMIN_PASSWORD", "Admin@12345"),
+		},
 		Server: ServerConfig{
 			Host:        env("TASK_MANAGER_SERVER_HOST", "0.0.0.0"),
 			Port:        envInt("TASK_MANAGER_SERVER_PORT", 8080),

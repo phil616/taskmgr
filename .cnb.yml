@@ -27,28 +27,6 @@ main:
             - https://cnb.cool/greenshadecapital/dreamreflex/assets-secrets/-/blob/main/api-server.yml
           script: npx edgeone pages deploy ./ops-timer-frontend/dist/ -n dreamreflex-countdown -t $EDGEONE_API_TOKEN
 
-        - name: 构建成功通知
-          image: cnbcool/webhook
-          imports:
-            - https://cnb.cool/greenshadecapital/dreamreflex/assets-secrets/-/blob/main/api-server.yml
-          settings:
-            urls:
-              - https://api.dreamreflex.com/api/email/send-common
-            method: POST
-            content_type: application/json
-            template: |
-              {
-                "title": "前端构建部署成功",
-                "content": "仓库{{ CNB_REPO_SLUG }}前端构建成功，URL：{{ CNB_REPO_URL_HTTPS }}",
-                "message_id": "{{ CNB_BRANCH_SHA }}",
-                "recipients": ["phil616@163.com"]
-              }
-            headers:
-              - "x-api-key=${UPLOAD_API_KEY}"
-            valid_response_codes: [200, 201, 204]
-            skip_verify: false
-            debug: true
-
     # ── 后端：Docker 构建 + 部署到 S2 ──
     - services:
         - docker
@@ -86,7 +64,7 @@ main:
 
               docker stop ops-task-manager || true
               docker rm   ops-task-manager || true
-
+              baoctl sync phil616-taskmgr
               docker run -d --name ops-task-manager \
                 --pull=always \
                 --restart unless-stopped \

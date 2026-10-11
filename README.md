@@ -44,7 +44,9 @@ go mod tidy
 go run ./cmd/server/
 ```
 
-默认管理员账户：`admin` / `Admin@12345`
+初始管理员用户名默认 `admin`，密码默认 `Admin@12345`。首次启动前请在 `.env` 中设置 `TASK_MANAGER_INIT_ADMIN_USERNAME` 和 `TASK_MANAGER_INIT_ADMIN_PASSWORD`。仅数据库没有用户时创建账户，修改这些变量不会重置已有账户。
+
+根目录 `.env.example` 与 `ops-timer-backend/env.example` 均为完整、相同的后端模板。`.env` 从**启动命令的当前工作目录**读取；例如在 `ops-timer-backend` 中执行 `go run ./cmd/server` 时，应将 `.env` 放在该目录。优先级为：管理员命令行参数 `-admin-user` / `-admin-pass` > 已导出的环境变量 > `.env` > 默认值。
 
 **前端：**
 
@@ -122,7 +124,7 @@ cd-v2/
 # 登录获取 Token
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
+  -d '{"username":"admin","password":"Admin@12345"}'
 
 # 使用 Token
 curl http://localhost:8080/api/v1/units \
@@ -241,6 +243,8 @@ curl -X POST http://localhost:8080/mcp \
 |--------|------|--------|
 | `TASK_MANAGER_SERVER_PORT` | 服务端口 | 8080 |
 | `TASK_MANAGER_DATABASE_DSN` | PostgreSQL 连接串 | postgres://taskmgr:taskmgr@localhost:5432/taskmgr?sslmode=disable |
+| `TASK_MANAGER_INIT_ADMIN_USERNAME` | 初始管理员用户名，仅首次创建 | admin |
+| `TASK_MANAGER_INIT_ADMIN_PASSWORD` | 初始管理员密码，仅首次创建 | Admin@12345（请替换） |
 | `TASK_MANAGER_AUTH_JWT_SECRET` | JWT 密钥 | 需修改 |
 | `TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS` | JWT 过期时间（小时） | 24 |
 | `TASK_MANAGER_SCHEDULER_NOTIFICATION_SCAN_INTERVAL` | 通知扫描间隔 | 10m |
