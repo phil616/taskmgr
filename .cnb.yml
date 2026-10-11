@@ -18,7 +18,7 @@ main:
         - name: 构建打包
           script: |
             cd ops-timer-frontend
-            echo "VITE_API_BASE_URL=https://countdown-api.dreamreflex.com/api/v1" > .env.production
+            echo "VITE_API_BASE_URL=https://countdown-api.altasci.com/api/v1" > .env.production
             echo "VITE_COMMIT_SHA=${CNB_COMMIT}" >> .env.production
             npm run build
 
