@@ -68,6 +68,7 @@ main:
               docker run -d --name ops-task-manager \
                 --pull=always \
                 --restart unless-stopped \
+                -p 5003:5003 \
                 --env-file /run/baoctl/phil616-taskmgr.env \
                 ${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:prod
 
