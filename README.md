@@ -62,7 +62,7 @@ npm run dev
 
 后端镜像使用 `ops-timer-backend/Dockerfile` 构建，通过 `TASK_MANAGER_DATABASE_DSN` 连接已创建的 PostgreSQL 数据库；启动时自动建表。仅支持 PostgreSQL，不提供 SQLite 迁移或兼容路径。
 
-CNB 部署前，在目标服务器创建权限为 `600` 的 `/root/ops-timer-postgres.env`，内容为 `TASK_MANAGER_DATABASE_DSN=<PostgreSQL 连接串>`。流水线通过 Docker `--env-file` 读取该文件，数据库凭据不会插入远端 Shell 命令。生产连接串请按数据库服务要求配置 TLS。
+当前 CNB 流水线执行 `baoctl sync phil616-taskmgr`，并通过 Docker `--env-file /run/baoctl/phil616-taskmgr.env` 注入配置。请在对应配置源中设置 `TASK_MANAGER_DATABASE_DSN` 等后端变量；跨源部署还需设置 `TASK_MANAGER_SERVER_CORS_ORIGINS`。修改仓库中的示例文件不会自动改变容器环境。当前端口映射为 `5003:5003`，实际配置需设置 `TASK_MANAGER_SERVER_PORT=5003`。生产连接串请按数据库服务要求配置 TLS。
 
 ## 构建命令
 
@@ -235,13 +235,14 @@ curl -X POST http://localhost:8080/mcp \
 
 ## 配置说明
 
-所有配置通过 `TASK_MANAGER_*` 环境变量读取，也可将变量写入 `.env` 文件（放在可执行文件同目录），程序启动时自动加载。
+所有配置通过 `TASK_MANAGER_*` 环境变量读取，也可将变量写入 `.env` 文件（放在启动命令的当前工作目录），程序启动时自动加载。
 
 环境变量模板：[`ops-timer-backend/env.example`](ops-timer-backend/env.example)。
 
 | 环境变量 | 说明 | 默认值 |
 |--------|------|--------|
 | `TASK_MANAGER_SERVER_PORT` | 服务端口 | 8080 |
+| `TASK_MANAGER_SERVER_CORS_ORIGINS` | 允许跨源访问的前端来源，逗号分隔；同源部署可留空 | 空 |
 | `TASK_MANAGER_DATABASE_DSN` | PostgreSQL 连接串 | postgres://taskmgr:taskmgr@localhost:5432/taskmgr?sslmode=disable |
 | `TASK_MANAGER_INIT_ADMIN_USERNAME` | 初始管理员用户名，仅首次创建 | admin |
 | `TASK_MANAGER_INIT_ADMIN_PASSWORD` | 初始管理员密码，仅首次创建 | Admin@12345（请替换） |
