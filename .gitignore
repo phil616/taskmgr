@@ -113,3 +113,10 @@ logs/
 bin/
 
 thesis/
+
+# Qt desktop
+__pycache__/
+.venv/
+*.egg-info/
+ops-timer-desktop/taskmgr_desktop/web/
+ops-timer-desktop/build/

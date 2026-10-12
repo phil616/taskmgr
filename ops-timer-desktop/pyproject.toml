@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "taskmgr-desktop"
+version = "1.0.0"
+description = "Qt desktop client for Task Manager"
+requires-python = ">=3.10"
+dependencies = ["PySide6>=6.8,<7"]
+
+[project.scripts]
+taskmgr-desktop = "taskmgr_desktop.app:main"
+
+[tool.setuptools.packages.find]
+include = ["taskmgr_desktop*"]
+
+[tool.setuptools.package-data]
+taskmgr_desktop = ["web/**/*", "web/*", "icon.svg"]

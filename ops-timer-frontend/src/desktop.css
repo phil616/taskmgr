@@ -1,0 +1,33 @@
+/* Enabled only in the separately built Qt desktop bundle. */
+html.desktop-client {
+  --desktop-ink: #172c49;
+}
+.desktop-client .v-application {
+  background: #f3f6fb !important;
+  font-family: 'Inter', 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif;
+}
+.desktop-client .v-navigation-drawer {
+  background: #172c49;
+  color: #dbe7f8;
+  border: none !important;
+}
+.desktop-client .v-navigation-drawer .v-list-item--active {
+  color: #a9d9ff !important;
+  background: #284567;
+}
+.desktop-client .v-navigation-drawer .v-list-item { margin: 6px 8px; }
+.desktop-client .v-navigation-drawer .v-divider { opacity: .15; }
+.desktop-client .v-app-bar { background: #fff !important; color: var(--desktop-ink); }
+.desktop-client .v-card {
+  border-radius: 14px !important;
+  border: 1px solid #e2e9f3;
+  box-shadow: 0 3px 16px #233c6010 !important;
+}
+.desktop-client .v-btn { border-radius: 8px; text-transform: none; letter-spacing: .2px; }
+.desktop-client .v-main > .v-container { max-width: 1840px; margin: 0 auto; }
+.desktop-client .v-table { border-radius: 12px; }
+.desktop-client .v-table thead { background: #f5f8fc; }
+.desktop-client .v-theme--dark.v-application { background: #121c2c !important; }
+.desktop-client .v-theme--dark .v-card { border-color: #30415b; }
+.desktop-client .v-theme--dark .v-app-bar { background: #1d2c42 !important; color: #dbe7f8; }
+.desktop-client .v-theme--dark .v-table thead { background: #25354c; }

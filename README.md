@@ -19,6 +19,7 @@
 |------|------|
 | 后端 | Go 1.25+, Gin, GORM, PostgreSQL |
 | 前端 | Vue 3, Vuetify 3, Pinia, TypeScript |
+| 桌面端 | Python, PySide6 / Qt 6 WebEngine |
 | 构建 | Vite 5, Docker |
 
 ## 快速开始
@@ -57,6 +58,19 @@ npm run dev
 ```
 
 前端开发服务器运行在 `http://localhost:5173`，API 请求自动代理到后端 `http://localhost:8080`。
+
+### Qt 桌面端
+
+新增 [Qt 任务工作台](ops-timer-desktop/README.md)，内置 Web 业务界面与桌面专用布局，支持持久保存后端 URL、按后端隔离登录会话、原生文件保存及缩放快捷键。仅需连接 Go 后端，无需部署 Web 站点。
+
+```bash
+cd ops-timer-desktop
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
+pip install -e .
+python build_web.py
+python -m taskmgr_desktop
+```
 
 ### Docker 部署
 
@@ -103,6 +117,7 @@ cd-v2/
 │   │   └── pkg/             # 工具包
 │   ├── env.example           # 环境变量模板
 │   └── Dockerfile
+├── ops-timer-desktop/       # Qt 桌面端（内置界面、连接设置与本地代理）
 ├── ops-timer-frontend/      # Vue 3 前端
 │   ├── src/
 │   │   ├── api/             # API 请求层
