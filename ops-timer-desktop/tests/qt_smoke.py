@@ -15,7 +15,9 @@ os.environ['XDG_CONFIG_HOME'] = state.name
 os.environ['XDG_DATA_HOME'] = state.name
 os.environ['XDG_CACHE_HOME'] = state.name
 
-from PySide6.QtCore import QEventLoop, QSettings, QTimer
+from PySide6.QtCore import QEventLoop, QPoint, QPointF, QSettings, QTimer, Qt
+from PySide6.QtGui import QWheelEvent
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 from taskmgr_desktop.app import ConnectionDialog, Window
 
@@ -56,6 +58,8 @@ thread.start()
 app = QApplication([])
 app.setOrganizationName('TaskmgrSmoke')
 app.setApplicationName('DesktopSmoke')
+QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, state.name)
 base = f'http://127.0.0.1:{backend.server_port}'
 settings = QSettings()
 settings.setValue('connection/backend_url', base)
@@ -63,11 +67,15 @@ settings.sync()
 assert QSettings().value('connection/backend_url') == base
 persisted = subprocess.check_output([sys.executable, '-c',
     'from PySide6.QtCore import QCoreApplication, QSettings; '
+    f'QSettings.setDefaultFormat(QSettings.Format.IniFormat); QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, {state.name!r}); '
     'app = QCoreApplication([]); app.setOrganizationName("TaskmgrSmoke"); '
     'app.setApplicationName("DesktopSmoke"); print(QSettings().value("connection/backend_url"))'], text=True)
 assert persisted.strip() == base
-window = Window()
+window = Window(profile_root=Path(state.name) / 'profiles')
 window.show()
+expected_dpr = os.environ.get('TASKMGR_EXPECT_DPR')
+if expected_dpr:
+    assert abs(window.devicePixelRatioF() - float(expected_dpr)) < .05, (window.devicePixelRatioF(), expected_dpr)
 
 
 def wait(predicate, timeout=20):
@@ -106,6 +114,42 @@ def fetch(path, options='{}'):
 
 try:
     loaded()
+    available = window.screen().availableGeometry()
+    assert available.contains(window.frameGeometry()), (available, window.frameGeometry())
+    for width, height in ((640, 480), (960, 640), (1280, 820)):
+        window.resize(min(width, available.width() - 32), min(height, available.height() - 64))
+        window.fit_to_screen()
+        settle_paint()
+        assert js('document.documentElement.scrollWidth <= window.innerWidth + 1')
+        assert js('document.querySelector(".desktop-login .v-card").getBoundingClientRect().width <= 460')
+        assert abs(js('window.innerWidth') - window.view.width()) <= 2
+        if js('window.innerHeight') >= 660:
+            assert js('document.documentElement.scrollHeight <= window.innerHeight + 1')
+    # Oversized/offscreen saved windows must fit the current logical work area.
+    window.resize(6000, 4000)
+    window.move(-5000, -5000)
+    window.fit_to_screen()
+    settle_paint()
+    assert available.contains(window.frameGeometry()), (available, window.frameGeometry())
+    assert js('document.querySelector(".desktop-login .v-card").getBoundingClientRect().width <= 460')
+    window.set_zoom(100)
+    window.view.setFocus()
+    QTest.keyClick(window.view, Qt.Key.Key_Plus, Qt.KeyboardModifier.ControlModifier)
+    assert window.zoom_percent == 110
+    wheel = QWheelEvent(QPointF(10, 10), QPointF(window.view.mapToGlobal(QPoint(10, 10))),
+                        QPoint(), QPoint(0, 120), Qt.MouseButton.NoButton,
+                        Qt.KeyboardModifier.ControlModifier, Qt.ScrollPhase.NoScrollPhase, False)
+    QApplication.sendEvent(window.view.focusProxy() or window.view, wheel)
+    assert window.zoom_percent == 120
+    for _ in range(30):
+        window.zoom(10)
+    assert window.view.zoomFactor() == 2 and not window.zoom_in.isEnabled()
+    for _ in range(30):
+        window.zoom(-10)
+    assert window.view.zoomFactor() == .5 and not window.zoom_out.isEnabled()
+    window.set_zoom(100)
+    settle_paint()
+    assert js('document.querySelector(".desktop-login .v-card").getBoundingClientRect().width <= 460')
     screenshot = os.environ.get('TASKMGR_SMOKE_SCREENSHOT')
     if screenshot:
         settle_paint()
@@ -119,17 +163,32 @@ try:
     fetch('/api/v1/auth/browser/login', '{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}')
     assert fetch('/api/v1/check')['cookie'] == 'desktop_test=secret'
     assert 'secret' not in js('document.cookie')
+    window.set_zoom(130)
     window.connect_backend(base + '/other')
+    assert window.view.zoomFactor() == 1.3
     loaded()
     assert fetch('/api/v1/check')['cookie'] == ''
     window.connect_backend(base)
+    assert window.view.zoomFactor() == 1.3
     wait(lambda: js('document.body && document.body.innerText.includes("告警单元")'))
     assert fetch('/api/v1/check')['cookie'] == 'desktop_test=secret'
     if screenshot:
         settle_paint()
-        window.grab().save(str(Path(screenshot).with_stem('taskmgr-dashboard')))
+        window.grab().save(str(Path(screenshot).with_stem(Path(screenshot).stem + '-dashboard')))
+    window.close()
+    app.processEvents()
+    window = Window(profile_root=Path(state.name) / 'profiles')
+    window.show()
+    settle_paint()
+    assert window.zoom_percent == 130 and window.view.zoomFactor() == 1.3
+    assert available.contains(window.frameGeometry())
+    window.view.setFocus()
+    QTest.keyClick(window.view, Qt.Key.Key_0, Qt.KeyboardModifier.ControlModifier)
+    assert window.zoom_percent == 100 and window.view.zoomFactor() == 1
+    assert window.settings.value('view/zoom_percent') == 100
     window.configure = lambda: None
-    print('PASS: Vue login rendered, desktop style loaded, URL persisted/validated, HttpOnly cookie round-trip, backend profile isolation and restoration')
+    print(f'Display DPR: {window.devicePixelRatioF():g}; logical work area: {available.width()}x{available.height()}')
+    print('PASS: responsive window/login sizes, offscreen recovery, zoom shortcuts/wheel/bounds/persistence, Vue rendering, URL settings, HttpOnly cookies and backend isolation')
 finally:
     window.close()
     app.processEvents()

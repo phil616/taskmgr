@@ -66,9 +66,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('X-Content-Type-Options', 'nosniff')
         for name, value in headers:
             self.send_header(name, value)
-        self.end_headers()
-        if self.command != 'HEAD':
-            self.wfile.write(body)
+        try:
+            self.end_headers()
+            if self.command != 'HEAD':
+                self.wfile.write(body)
+        except ConnectionError:
+            # Navigation/reconnection can cancel an in-flight browser request.
+            self.close_connection = True
 
     def handle_request(self):
         server = self.server

@@ -1,6 +1,6 @@
 <template>
   <div class="notes-page">
-    <div class="d-flex align-center mb-4">
+    <div class="d-flex flex-wrap ga-2 align-center mb-4">
       <div>
         <h2 class="text-h5 font-weight-bold">笔记</h2>
         <div class="text-body-2 text-medium-emphasis mt-1">
@@ -8,6 +8,9 @@
         </div>
       </div>
       <v-spacer />
+      <v-btn variant="tonal" prepend-icon="mdi-file-restore-outline" @click="openDrafts">
+        草稿箱{{ drafts.length ? `（${drafts.length}）` : '' }}
+      </v-btn>
       <v-btn
         variant="outlined"
         class="mr-2"
@@ -187,11 +190,12 @@
                       </div>
                     </div>
                     <div class="ml-3">
+                      <v-btn icon="mdi-content-copy" variant="text" aria-label="复制笔记全文" title="复制全文（Markdown 原文）" @click="copyFullText(activeNote.content)" />
                       <v-btn icon="mdi-pencil" variant="text" @click="openEditor(activeNote)" />
                     </div>
                   </div>
 
-                  <MdPreview :model-value="activeNote.content" preview-only />
+                  <MdPreview :model-value="activeNote.content" :theme="editorTheme" code-theme="github" preview-only />
                 </div>
               </template>
               <v-card-text v-else class="py-16 text-center text-medium-emphasis">
@@ -209,7 +213,7 @@
       </v-col>
     </v-row>
 
-    <v-dialog v-model="showEditorDialog" max-width="1200" persistent>
+    <v-dialog v-model="showEditorDialog" max-width="1200" persistent scrollable>
       <v-card class="rounded-lg">
         <v-card-title>{{ editingNote ? '编辑笔记' : '新建笔记' }}</v-card-title>
         <v-divider />
@@ -218,6 +222,7 @@
             <v-col cols="12" md="6">
               <v-text-field
                 v-model="noteForm.title"
+                :disabled="saving"
                 label="标题"
                 :rules="[v => !!v || '必填']"
               />
@@ -225,6 +230,7 @@
             <v-col cols="12" md="3">
               <v-select
                 v-model="noteForm.group_id"
+                :disabled="saving"
                 :items="groupOptions"
                 label="所属分组"
                 clearable
@@ -233,6 +239,7 @@
             <v-col cols="12" md="3">
               <v-combobox
                 v-model="noteForm.tags"
+                :disabled="saving"
                 :items="availableTags"
                 label="标签"
                 multiple
@@ -244,18 +251,65 @@
 
           <MdEditor
             v-model="noteForm.content"
+            editor-id="note-editor"
             language="zh-CN"
+            :theme="editorTheme"
+            code-theme="github"
+            :tab-width="2"
+            :read-only="saving"
+            no-upload-img
             :toolbars="editorToolbars"
-            style="height: 560px"
+            style="height: clamp(280px, 55dvh, 560px)"
+            @on-save="saveDraft"
+            @on-error="editorError"
           />
+          <div v-if="draftSavedAt" class="text-caption text-medium-emphasis mt-2" role="status">
+            草稿已保存于 {{ formatDateTime(draftSavedAt) }}{{ draftDirty ? ' · 有尚未保存的修改' : '' }}
+          </div>
         </v-card-text>
         <v-divider />
-        <v-card-actions>
+        <v-card-actions class="flex-wrap ga-1">
+          <v-btn variant="text" prepend-icon="mdi-content-copy" @click="copyFullText(noteForm.content)">全文复制</v-btn>
+          <v-btn variant="tonal" :disabled="saving" @click="saveAndCloseDraft">存草稿并关闭</v-btn>
           <v-spacer />
-          <v-btn variant="text" @click="closeEditor">取消</v-btn>
-          <v-btn color="primary" :loading="saving" @click="saveNote">
+          <v-btn variant="text" :disabled="saving || savingDraft" @click="requestCloseEditor">关闭</v-btn>
+          <v-btn variant="tonal" color="secondary" :loading="savingDraft" :disabled="saving" @click="saveDraft">保存草稿</v-btn>
+          <v-btn color="primary" :loading="saving" :disabled="savingDraft" @click="saveNote">
             {{ editingNote ? '更新' : '创建' }}
           </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="showDraftDialog" max-width="720" scrollable>
+      <v-card>
+        <v-card-title>草稿箱</v-card-title>
+        <v-card-text>
+          <v-alert v-if="draftLoadError" type="error" class="mb-3">{{ draftLoadError }}</v-alert>
+          <v-progress-linear v-if="loadingDrafts" indeterminate />
+          <v-list v-else-if="drafts.length" lines="three">
+            <v-list-item v-for="draft in drafts" :key="draft.id" :title="draft.title || '无标题草稿'" :subtitle="`${formatDateTime(draft.updated_at)} · ${excerpt(draft.content)}`">
+              <template #append>
+                <v-btn variant="tonal" color="primary" class="mr-1" @click="restoreDraft(draft)">恢复</v-btn>
+                <v-btn icon="mdi-content-copy" variant="text" aria-label="复制草稿全文" @click="copyFullText(draft.content)" />
+                <v-btn icon="mdi-delete" variant="text" color="error" aria-label="删除草稿" @click="deleteDraft(draft)" />
+              </template>
+            </v-list-item>
+          </v-list>
+          <p v-else-if="!draftLoadError" class="py-8 text-center text-medium-emphasis">暂无草稿。在编辑器中可随时保存，标题和正文尚未填写完整也可以保存。</p>
+        </v-card-text>
+        <v-card-actions><v-spacer /><v-btn @click="showDraftDialog = false">关闭草稿箱</v-btn></v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="showUnsavedDialog" max-width="460" persistent>
+      <v-card>
+        <v-card-title>保留未保存的修改？</v-card-title>
+        <v-card-text>保存到草稿后，可以从 Web 或 Qt 的草稿箱继续编辑。</v-card-text>
+        <v-card-actions class="flex-wrap">
+          <v-btn :disabled="savingDraft" @click="showUnsavedDialog = false">继续编辑</v-btn>
+          <v-btn color="error" :disabled="savingDraft" @click="discardEditor">丢弃修改</v-btn>
+          <v-btn color="primary" :loading="savingDraft" @click="saveAndCloseDraft">保存草稿</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -279,19 +333,22 @@
       </v-card>
     </v-dialog>
 
-    <v-snackbar v-model="snackbar" :timeout="2200" location="top" color="success">
+    <v-snackbar v-model="snackbar" :timeout="3500" location="top" :color="snackbarColor">
       {{ snackbarText }}
     </v-snackbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
+import { useTheme } from 'vuetify'
+import '@/plugins/markdown'
 import { MdEditor, MdPreview } from 'md-editor-v3'
 import type { ToolbarNames } from 'md-editor-v3'
-import 'md-editor-v3/lib/style.css'
-import 'md-editor-v3/lib/preview.css'
 import { noteApi } from '@/api/notes'
+import type { NoteDraft, NoteDraftPayload } from '@/api/notes'
+import { copyText } from '@/utils/clipboard'
 import type { Note, NoteGroup } from '@/types'
 import { formatDateTime } from '@/utils/time'
 
@@ -314,6 +371,19 @@ const showEditorDialog = ref(false)
 const showGroupDialog = ref(false)
 const snackbar = ref(false)
 const snackbarText = ref('')
+const snackbarColor = ref('success')
+const theme = useTheme()
+const editorTheme = computed(() => theme.global.current.value.dark ? 'dark' : 'light')
+const drafts = ref<NoteDraft[]>([])
+const draftId = ref<string>()
+const draftSavedAt = ref('')
+const savingDraft = ref(false)
+const loadingDrafts = ref(false)
+const draftLoadError = ref('')
+const showDraftDialog = ref(false)
+const showUnsavedDialog = ref(false)
+const initialSnapshot = ref('')
+const draftSnapshot = ref('')
 
 const noteForm = reactive({
   title: '',
@@ -357,6 +427,10 @@ const editorToolbars: ToolbarNames[] = [
   'code',
   'link',
   'table',
+  'revoke',
+  'next',
+  'prettier',
+  'save',
   '=',
   'preview',
   'fullscreen',
@@ -370,8 +444,9 @@ function excerpt(markdown: string) {
     .slice(0, 96) || '空白内容'
 }
 
-function toast(message: string) {
+function toast(message: string, color = 'success') {
   snackbarText.value = message
+  snackbarColor.value = color
   snackbar.value = true
 }
 
@@ -441,6 +516,8 @@ async function fetchGroups() {
 }
 
 function openEditor(note?: Note) {
+  draftId.value = undefined
+  draftSavedAt.value = ''
   editingNote.value = note || null
   Object.assign(noteForm, {
     title: note?.title || '',
@@ -449,11 +526,100 @@ function openEditor(note?: Note) {
     tags: note?.tags ? [...note.tags] : [],
   })
   showEditorDialog.value = true
+  initialSnapshot.value = snapshot()
+  draftSnapshot.value = ''
 }
+
+function payload(): NoteDraftPayload {
+  return { note_id: editingNote.value?.id || null, title: noteForm.title,
+    content: noteForm.content, group_id: noteForm.group_id,
+    tags: noteForm.tags.filter(tag => typeof tag === 'string' && !!tag) }
+}
+function snapshot() { return JSON.stringify(payload()) }
+const editorDirty = computed(() => showEditorDialog.value && snapshot() !== (draftSnapshot.value || initialSnapshot.value))
+const draftDirty = computed(() => !!draftSnapshot.value && snapshot() !== draftSnapshot.value)
+
+async function fetchDrafts() {
+  loadingDrafts.value = true
+  draftLoadError.value = ''
+  try { drafts.value = (await noteApi.listDrafts()).data || [] }
+  catch { draftLoadError.value = '草稿加载失败，请检查连接并确认后端已更新。' }
+  finally { loadingDrafts.value = false }
+}
+async function openDrafts() { showDraftDialog.value = true; await fetchDrafts() }
+
+async function saveDraft(): Promise<boolean> {
+  if (saving.value || savingDraft.value) return false
+  savingDraft.value = true
+  const data = payload()
+  const savedSnapshot = JSON.stringify(data)
+  try {
+    const saved = (await noteApi.saveDraft(data, draftId.value)).data
+    draftId.value = saved.id
+    draftSavedAt.value = saved.updated_at
+    draftSnapshot.value = savedSnapshot
+    drafts.value = [saved, ...drafts.value.filter(draft => draft.id !== saved.id)]
+    toast('草稿已保存')
+    return true
+  } catch (error: any) {
+    toast(error.response?.data?.message || '草稿保存失败，编辑内容已保留，请重试。', 'error')
+    return false
+  } finally { savingDraft.value = false }
+}
+async function saveAndCloseDraft() {
+  if (await saveDraft()) {
+    // Do not close if the user typed more while the request was in flight.
+    if (draftDirty.value) { toast('草稿已保存，但还有新修改，请再次保存。', 'info'); return }
+    showUnsavedDialog.value = false
+    closeEditor()
+  }
+}
+function requestCloseEditor() {
+  if (editorDirty.value) showUnsavedDialog.value = true
+  else closeEditor()
+}
+function discardEditor() { showUnsavedDialog.value = false; closeEditor() }
+
+async function restoreDraft(draft: NoteDraft) {
+  let original: Note | undefined
+  if (draft.note_id) {
+    try { original = (await noteApi.getById(draft.note_id)).data }
+    catch (error: any) {
+      if (error.response?.status !== 404) { toast('无法加载原笔记，请检查连接后重试。', 'error'); return }
+      if (!window.confirm('原笔记已删除，是否将草稿恢复为新笔记？')) return
+    }
+  }
+  openEditor(original)
+  Object.assign(noteForm, { title: draft.title, content: draft.content,
+    group_id: groups.value.some(group => group.id === draft.group_id) ? draft.group_id : null,
+    tags: [...(draft.tags || [])] })
+  draftId.value = draft.id
+  draftSavedAt.value = draft.updated_at
+  draftSnapshot.value = snapshot()
+  showDraftDialog.value = false
+}
+async function deleteDraft(draft: NoteDraft) {
+  if (!window.confirm(`确定删除草稿《${draft.title || '无标题草稿'}》吗？`)) return
+  try { await noteApi.deleteDraft(draft.id); drafts.value = drafts.value.filter(item => item.id !== draft.id); toast('草稿已删除') }
+  catch { toast('草稿删除失败，请重试。', 'error') }
+}
+async function copyFullText(content: string) {
+  try { await copyText(content); toast('已复制全文（Markdown 原文）') }
+  catch { toast('复制失败，请检查剪贴板权限后重试。', 'error') }
+}
+function editorError(error: { message?: string }) { toast(error.message || '编辑器操作失败', 'error') }
+
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (editorDirty.value || saving.value || savingDraft.value) { event.preventDefault(); event.returnValue = '' }
+}
+onBeforeRouteLeave(() => !(editorDirty.value || saving.value || savingDraft.value)
+  || window.confirm('有未保存的笔记修改，离开将丢失这些修改。请取消后保存到草稿。是否离开？'))
 
 function closeEditor() {
   showEditorDialog.value = false
   editingNote.value = null
+  draftId.value = undefined
+  draftSavedAt.value = ''
   Object.assign(noteForm, {
     title: '',
     content: '',
@@ -463,24 +629,30 @@ function closeEditor() {
 }
 
 async function saveNote() {
+  if (saving.value || savingDraft.value) return
   if (!noteForm.title.trim() || !noteForm.content.trim()) {
+    toast('请填写标题和正文；尚未完成的内容可以先保存草稿。', 'warning')
     return
   }
 
   saving.value = true
   try {
-    const payload = {
+    const notePayload = {
       title: noteForm.title.trim(),
       content: noteForm.content,
       group_id: noteForm.group_id || undefined,
       tags: noteForm.tags.filter(Boolean),
     }
 
-    if (editingNote.value) {
-      await noteApi.update(editingNote.value.id, payload)
+    if (draftId.value) {
+      await noteApi.publishDraft(draftId.value, payload())
+      drafts.value = drafts.value.filter(draft => draft.id !== draftId.value)
+      toast('笔记已保存，草稿已提交')
+    } else if (editingNote.value) {
+      await noteApi.update(editingNote.value.id, { ...notePayload, group_id: noteForm.group_id || '' })
       toast('笔记已更新')
     } else {
-      await noteApi.create(payload)
+      await noteApi.create(notePayload)
       toast('笔记已创建')
     }
 
@@ -488,6 +660,7 @@ async function saveNote() {
     await Promise.all([fetchGroups(), fetchNotes()])
   } catch (error) {
     console.error(error)
+    toast('笔记保存失败，编辑内容和草稿已保留，请重试。', 'error')
   } finally {
     saving.value = false
   }
@@ -570,7 +743,12 @@ async function deleteGroup(group: NoteGroup) {
 }
 
 onMounted(async () => {
-  await Promise.all([fetchGroups(), fetchNotes()])
+  window.addEventListener('beforeunload', beforeUnload)
+  await Promise.all([fetchGroups(), fetchNotes(), fetchDrafts()])
+})
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', beforeUnload)
+  if (debounceTimer) clearTimeout(debounceTimer)
 })
 </script>
 

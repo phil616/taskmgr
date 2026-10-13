@@ -1,7 +1,7 @@
 <template>
-  <v-container class="fill-height" fluid>
+  <v-container class="fill-height desktop-login" fluid>
     <v-row align="center" justify="center">
-      <v-col cols="12" sm="8" md="4">
+      <v-col cols="12" sm="8" md="4" class="desktop-login-column">
         <v-card class="pa-6 rounded-xl" elevation="8">
           <v-card-text class="text-center mb-4">
             <v-icon size="64" color="primary" class="mb-4">mdi-timer-cog-outline</v-icon>

@@ -2,6 +2,20 @@
 html.desktop-client {
   --desktop-ink: #172c49;
 }
+.desktop-client .desktop-login {
+  min-height: 100dvh;
+  height: auto;
+  padding: 24px 16px;
+}
+.desktop-client .desktop-login > .v-row {
+  width: 100%;
+  margin: 0;
+}
+.desktop-client .desktop-login .desktop-login-column {
+  flex: 0 1 460px;
+  max-width: 460px;
+  min-width: 0;
+}
 .desktop-client .v-application {
   background: #f3f6fb !important;
   font-family: 'Inter', 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif;

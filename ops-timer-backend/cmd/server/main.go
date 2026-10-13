@@ -213,6 +213,7 @@ func autoMigrate(db *gorm.DB) {
 		&model.Todo{},
 		&model.NoteGroup{},
 		&model.Note{},
+		&model.NoteDraft{},
 		&model.Notification{},
 		&model.Schedule{},
 		&model.ScheduleResource{},

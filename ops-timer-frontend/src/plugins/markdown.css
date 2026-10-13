@@ -1,0 +1,13 @@
+.md-editor-toolbar-wrapper { color: #334155; background: #f8fafc; }
+.md-editor-toolbar-item { color: #334155; }
+.md-editor-toolbar-item:hover { color: #2563eb; background: #e8efff; }
+.md-editor-icon { fill: currentColor; width: 1.25em; height: 1.25em; }
+.md-editor-dark .md-editor-toolbar-wrapper { color: #e2e8f0; background: #1e293b; }
+.md-editor-dark .md-editor-toolbar-item { color: #e2e8f0; }
+.md-editor-dark .md-editor-toolbar-item:hover { color: #93c5fd; background: #334155; }
+.md-editor-dark .hljs { color: #c9d1d9; background: #0d1117; }
+.md-editor-dark .hljs-keyword, .md-editor-dark .hljs-selector-tag { color: #ff7b72; }
+.md-editor-dark .hljs-string, .md-editor-dark .hljs-regexp { color: #a5d6ff; }
+.md-editor-dark .hljs-number, .md-editor-dark .hljs-literal, .md-editor-dark .hljs-built_in { color: #79c0ff; }
+.md-editor-dark .hljs-title { color: #d2a8ff; }
+.md-editor-dark .hljs-comment, .md-editor-dark .hljs-quote { color: #8b949e; }

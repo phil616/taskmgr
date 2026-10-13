@@ -8,7 +8,26 @@ import type {
   UpdateNoteRequest,
 } from '@/types'
 
+export interface NoteDraftPayload {
+  note_id: string | null
+  title: string
+  content: string
+  group_id: string | null
+  tags: string[]
+}
+export interface NoteDraft extends NoteDraftPayload {
+  id: string
+  created_at: string
+  updated_at: string
+}
+
 export const noteApi = {
+  listDrafts: () => get<NoteDraft[]>('/note-drafts'),
+  saveDraft: (data: NoteDraftPayload, id?: string) => id
+    ? put<NoteDraft>(`/note-drafts/${id}`, data)
+    : post<NoteDraft>('/note-drafts', data),
+  deleteDraft: (id: string) => del(`/note-drafts/${id}`),
+  publishDraft: (id: string, data: NoteDraftPayload) => post<Note>(`/note-drafts/${id}/publish`, data),
   list: (params?: NoteQueryParams) =>
     get<Note[]>('/notes', params),
 

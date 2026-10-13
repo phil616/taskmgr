@@ -156,6 +156,11 @@ func (r *Router) Setup() *gin.Engine {
 	protected.DELETE("/todo-groups/:id", r.todoHandler.DeleteGroup)
 
 	// Notes
+	protected.GET("/note-drafts", r.noteHandler.ListDrafts)
+	protected.POST("/note-drafts", r.noteHandler.SaveDraft)
+	protected.PUT("/note-drafts/:id", r.noteHandler.SaveDraft)
+	protected.DELETE("/note-drafts/:id", r.noteHandler.DeleteDraft)
+	protected.POST("/note-drafts/:id/publish", r.noteHandler.PublishDraft)
 	protected.GET("/notes", r.noteHandler.List)
 	protected.POST("/notes", r.noteHandler.Create)
 	protected.GET("/notes/search", r.noteHandler.Search)

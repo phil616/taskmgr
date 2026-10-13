@@ -2,6 +2,14 @@ package dto
 
 import "time"
 
+type SaveNoteDraftRequest struct {
+	NoteID  *string  `json:"note_id" binding:"omitempty,uuid"`
+	GroupID *string  `json:"group_id" binding:"omitempty,uuid"`
+	Title   string   `json:"title" binding:"max=256"`
+	Content string   `json:"content"`
+	Tags    []string `json:"tags"`
+}
+
 type CreateNoteRequest struct {
 	GroupID *string  `json:"group_id"`
 	Title   string   `json:"title" binding:"required,max=256"`

@@ -28,21 +28,22 @@ type BackupApp struct {
 }
 
 type BackupData struct {
-	Projects         []model.Project         `json:"projects"`
-	Units            []model.Unit            `json:"units"`
-	UnitLogs         []model.UnitLog         `json:"unit_logs"`
-	TodoGroups       []model.TodoGroup       `json:"todo_groups"`
-	Todos            []model.Todo            `json:"todos"`
-	NoteGroups       []model.NoteGroup       `json:"note_groups"`
-	Notes            []model.Note            `json:"notes"`
-	Notifications    []model.Notification    `json:"notifications"`
-	Schedules        []model.Schedule        `json:"schedules"`
+	Projects          []model.Project          `json:"projects"`
+	Units             []model.Unit             `json:"units"`
+	UnitLogs          []model.UnitLog          `json:"unit_logs"`
+	TodoGroups        []model.TodoGroup        `json:"todo_groups"`
+	Todos             []model.Todo             `json:"todos"`
+	NoteGroups        []model.NoteGroup        `json:"note_groups"`
+	Notes             []model.Note             `json:"notes"`
+	NoteDrafts        []model.NoteDraft        `json:"note_drafts"`
+	Notifications     []model.Notification     `json:"notifications"`
+	Schedules         []model.Schedule         `json:"schedules"`
 	ScheduleResources []model.ScheduleResource `json:"schedule_resources"`
-	Wallets          []model.Wallet          `json:"wallets"`
-	Categories       []model.BudgetCategory  `json:"categories"`
-	Transactions     []model.Transaction     `json:"transactions"`
-	Secrets          []model.Secret          `json:"secrets"`
-	SecretAuditLogs  []model.SecretAuditLog  `json:"secret_audit_logs"`
+	Wallets           []model.Wallet           `json:"wallets"`
+	Categories        []model.BudgetCategory   `json:"categories"`
+	Transactions      []model.Transaction      `json:"transactions"`
+	Secrets           []model.Secret           `json:"secrets"`
+	SecretAuditLogs   []model.SecretAuditLog   `json:"secret_audit_logs"`
 }
 
 type BackupPackage struct {
@@ -51,8 +52,8 @@ type BackupPackage struct {
 }
 
 type BackupImportResult struct {
-	Strategy string         `json:"strategy"`
-	Stats    BackupStats    `json:"stats"`
+	Strategy string      `json:"strategy"`
+	Stats    BackupStats `json:"stats"`
 }
 
 type BackupStats struct {
@@ -63,6 +64,7 @@ type BackupStats struct {
 	Todos             int `json:"todos"`
 	NoteGroups        int `json:"note_groups"`
 	Notes             int `json:"notes"`
+	NoteDrafts        int `json:"note_drafts"`
 	Notifications     int `json:"notifications"`
 	Schedules         int `json:"schedules"`
 	ScheduleResources int `json:"schedule_resources"`

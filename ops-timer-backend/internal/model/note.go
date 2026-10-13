@@ -30,3 +30,15 @@ type NoteGroup struct {
 	Notes     []Note `gorm:"foreignKey:GroupID" json:"notes,omitempty"`
 	NoteCount int64  `gorm:"-" json:"note_count"`
 }
+
+// NoteDraft is a recoverable snapshot; saving it never changes the original note.
+type NoteDraft struct {
+	ID        string          `gorm:"primaryKey;size:36" json:"id"`
+	NoteID    *string         `gorm:"size:36;index" json:"note_id"`
+	GroupID   *string         `gorm:"size:36" json:"group_id"`
+	Title     string          `gorm:"size:256" json:"title"`
+	Content   string          `gorm:"type:text" json:"content"`
+	Tags      JSONStringArray `gorm:"type:text" json:"tags"`
+	CreatedAt time.Time       `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt time.Time       `gorm:"autoUpdateTime" json:"updated_at"`
+}

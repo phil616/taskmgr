@@ -1205,6 +1205,116 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/note-drafts:
+    get:
+      tags: [Notes]
+      summary: 按更新时间列出笔记草稿
+      operationId: noteDraftsList
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: 草稿列表，不分页；同一工作空间的 Web 与 Qt 共用
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NoteDraft"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [Notes]
+      summary: 保存新草稿，允许空标题与空正文
+      operationId: noteDraftsCreate
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveNoteDraftRequest"
+      responses:
+        "201":
+          description: 已创建草稿，data 为 NoteDraft；不会修改原笔记
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/note-drafts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/idPath"
+    put:
+      tags: [Notes]
+      summary: 替换草稿快照，不会修改原笔记
+      operationId: noteDraftsUpdate
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveNoteDraftRequest"
+      responses:
+        "200":
+          description: 已更新草稿，data 为 NoteDraft
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Notes]
+      summary: 删除草稿
+      operationId: noteDraftsDelete
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "204":
+          description: 删除成功
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/note-drafts/{id}/publish:
+    parameters:
+      - $ref: "#/components/parameters/idPath"
+    post:
+      tags: [Notes]
+      summary: 将当前编辑内容提交为笔记并删除草稿
+      description: 在事务中创建或更新笔记并删除草稿；提交失败保留草稿。note_id 为空时创建笔记，否则更新指定原笔记。标题与正文必须非空。
+      operationId: noteDraftsPublish
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveNoteDraftRequest"
+      responses:
+        "200":
+          description: 已提交，data 为 NoteResponse
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/notes:
     get:
       tags: [Notes]
@@ -3606,6 +3716,43 @@ components:
         updated_at:
           type: string
           format: date-time
+
+    SaveNoteDraftRequest:
+      type: object
+      properties:
+        note_id:
+          type: string
+          format: uuid
+          nullable: true
+        group_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          maxLength: 256
+        content:
+          type: string
+          description: 完整 Markdown 原文
+        tags:
+          type: array
+          items:
+            type: string
+
+    NoteDraft:
+      allOf:
+        - $ref: "#/components/schemas/SaveNoteDraftRequest"
+        - type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            created_at:
+              type: string
+              format: date-time
+            updated_at:
+              type: string
+              format: date-time
 
     CreateNoteRequest:
       type: object

@@ -31,6 +31,8 @@ dist-ssr/
 *.local
 .vite/
 .vite-inspect/
+test-results/
+playwright-report/
 
 # npm / pnpm / yarn
 npm-debug.log*
@@ -120,3 +122,5 @@ __pycache__/
 *.egg-info/
 ops-timer-desktop/taskmgr_desktop/web/
 ops-timer-desktop/build/
+!ops-timer-frontend/public/vendor/
+!ops-timer-frontend/public/vendor/md-editor-icons.js

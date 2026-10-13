@@ -56,6 +56,9 @@ func (s *BackupService) Export() (*dto.BackupPackage, error) {
 	if err := s.db.Order("updated_at ASC, created_at ASC").Find(&data.Notes).Error; err != nil {
 		return nil, err
 	}
+	if err := s.db.Order("updated_at ASC, id ASC").Find(&data.NoteDrafts).Error; err != nil {
+		return nil, err
+	}
 	if err := s.db.Order("triggered_at ASC, id ASC").Find(&data.Notifications).Error; err != nil {
 		return nil, err
 	}
@@ -139,6 +142,7 @@ func (s *BackupService) Import(strategy string, raw []byte) (*dto.BackupImportRe
 			Todos:             len(payload.Data.Todos),
 			NoteGroups:        len(payload.Data.NoteGroups),
 			Notes:             len(payload.Data.Notes),
+			NoteDrafts:        len(payload.Data.NoteDrafts),
 			Notifications:     len(payload.Data.Notifications),
 			Schedules:         len(payload.Data.Schedules),
 			ScheduleResources: len(payload.Data.ScheduleResources),
@@ -223,6 +227,7 @@ func clearBackupTables(tx *gorm.DB) error {
 		&model.Transaction{},
 		&model.Secret{},
 		&model.Note{},
+		&model.NoteDraft{},
 		&model.NoteGroup{},
 		&model.Todo{},
 		&model.TodoGroup{},
@@ -272,6 +277,9 @@ func createBackupData(tx *gorm.DB, data *dto.BackupData, upsert bool) error {
 		return err
 	}
 	if err := createBatch(tx, data.Notes, upsert); err != nil {
+		return err
+	}
+	if err := createBatch(tx, data.NoteDrafts, upsert); err != nil {
 		return err
 	}
 	if err := createBatch(tx, data.Schedules, upsert); err != nil {
