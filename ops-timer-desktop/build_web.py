@@ -14,3 +14,4 @@ subprocess.run([npm, 'ci'], cwd=frontend, check=True)
 subprocess.run([npm, 'run', 'build', '--', '--mode', 'desktop', '--outDir',
                 str(root / 'taskmgr_desktop' / 'web'), '--emptyOutDir'],
                cwd=frontend, env=env, check=True)
+shutil.copy2(frontend / 'public/favicon.svg', root / 'taskmgr_desktop/icon.svg')

@@ -67,6 +67,9 @@ WebEngine 子进程及界面资源。请保留整个目录，不要单独复制 
 此发布方式提供 ZIP，不生成 MSI。
 
 构建脚本默认重新构建前端（含类型检查）；仅在已构建界面时可以加 `--skip-web`。
+窗口和 Windows EXE 图标统一使用前端 `public/favicon.svg`。Windows 构建时自动同步
+SVG，并生成含 16–256 像素尺寸的 ICO；使用 `--skip-web` 也会更新图标。
+仅更新开发版图标时可执行 `.venv\Scripts\python.exe build_icons.py`。
 若旧版 EXE 正在运行，使用 `--output-dir dist/release` 在独立目录构建，避免覆盖被占用的 DLL。
 Qt WebEngine 体积较大，ZIP 包含完整浏览器运行时。
 

@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import sys
 
+from build_icons import build_icons
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -30,9 +32,11 @@ def main():
         subprocess.run([sys.executable, str(root / 'build_web.py')], check=True)
     if not (root / 'taskmgr_desktop/web/index.html').is_file():
         parser.error('Missing web assets; run without --skip-web.')
+    icon = build_icons()
     subprocess.run([
         sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean',
         '--onedir', '--windowed', '--noupx', '--name', 'TaskmgrDesktop',
+        '--icon', str(icon),
         '--distpath', str(output), '--workpath', str(root / 'build/pyinstaller'),
         '--specpath', str(root / 'build'), '--paths', str(root),
         '--add-data', f'{root / "taskmgr_desktop/web"}:taskmgr_desktop/web',
