@@ -18,6 +18,10 @@ func LoggerMiddleware(logger *zap.Logger) gin.HandlerFunc {
 		start := time.Now()
 		path := c.Request.URL.Path
 		query := c.Request.URL.RawQuery
+		// OAuth query strings contain state, PKCE challenges and callback addresses.
+		if strings.HasPrefix(path, "/oauth/") {
+			query = ""
+		}
 
 		c.Next()
 
@@ -31,6 +35,9 @@ func LoggerMiddleware(logger *zap.Logger) gin.HandlerFunc {
 			zap.String("query", sanitizeLogValue(query)),
 			zap.Duration("latency", latency),
 			zap.String("ip", sanitizeLogValue(c.ClientIP())),
+		}
+		if clientID := c.GetString("oauth_client_id"); clientID != "" {
+			fields = append(fields, zap.String("oauth_client_id", clientID), zap.String("oauth_grant_id", c.GetString("oauth_grant_id")))
 		}
 
 		if status >= 500 {

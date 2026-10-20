@@ -79,6 +79,20 @@ func main() {
 
 	// Services — login attempts backed by PostgreSQL
 	authService := service.NewAuthService(userRepo, repository.NewBrowserSessionRepository(db), loginAttemptRepo, jwtManager, &cfg.Auth)
+	var oauthService *service.OAuthService
+	var oauthHandler *handler.OAuthHandler
+	if cfg.OAuth.Issuer != "" {
+		resourcePath := cfg.MCP.Path
+		if resourcePath == "" {
+			resourcePath = "/mcp"
+		}
+		oauthService, err = service.NewOAuthService(db, authService, cfg.OAuth.Issuer, resourcePath, cfg.Auth.JWTSecret, cfg.OAuth.DynamicRegistration)
+		if err != nil {
+			zapLogger.Fatal("OAuth 配置无效", zap.Error(err))
+		}
+		oauthHandler = handler.NewOAuthHandler(oauthService)
+		zapLogger.Info("OAuth 授权服务已启用", zap.String("issuer", oauthService.Issuer))
+	}
 	unitService := service.NewUnitService(unitRepo, unitLogRepo)
 	projectService := service.NewProjectService(projectRepo, unitRepo, txRepo)
 	todoService := service.NewTodoService(todoRepo, todoGroupRepo)
@@ -117,6 +131,7 @@ func main() {
 	if cfg.MCP.Enabled {
 		mcpHandler = handler.NewMCPHandler(handler.MCPHandlerConfig{
 			AuthService:    authService,
+			OAuthService:   oauthService,
 			BaseURL:        fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port),
 			ExternalURL:    cfg.MCP.ExternalURL,
 			MCPPath:        cfg.MCP.Path,
@@ -132,6 +147,8 @@ func main() {
 	// Router
 	r := router.NewRouter(&router.RouterConfig{
 		AuthHandler:     authHandler,
+		OAuthHandler:    oauthHandler,
+		OAuthService:    oauthService,
 		UnitHandler:     unitHandler,
 		ProjectHandler:  projectHandler,
 		TodoHandler:     todoHandler,
@@ -153,6 +170,11 @@ func main() {
 
 	// Scheduler
 	sched := scheduler.NewScheduler(unitRepo, notifRepo, userRepo, emailSvc, zapLogger)
+	if oauthService != nil {
+		if err := sched.AddMaintenanceJob("1h", oauthService.CleanupExpired); err != nil {
+			zapLogger.Fatal("注册 OAuth 清理任务失败", zap.Error(err))
+		}
+	}
 	if err := sched.Start(cfg.Scheduler.NotificationScanInterval); err != nil {
 		zapLogger.Error("启动定时任务失败", zap.Error(err))
 	}
@@ -206,6 +228,10 @@ func autoMigrate(db *gorm.DB) {
 	err := db.AutoMigrate(
 		&model.User{},
 		&model.BrowserSession{},
+		&model.OAuthClient{},
+		&model.OAuthCode{},
+		&model.OAuthGrant{},
+		&model.OAuthToken{},
 		&model.Project{},
 		&model.Unit{},
 		&model.UnitLog{},

@@ -7,6 +7,7 @@ info:
     ## 认证
     - **JWT**：在请求头添加 `Authorization: Bearer <token>`，`token` 由 `POST /api/v1/auth/login` 获得。
     - **API Token**：在请求头添加 `X-API-Token: <api_token>`，适用于脚本与第三方集成（见 `GET /api/v1/auth/token`）。
+    - **OAuth**：外部智能体通过授权码 + PKCE S256 取得 Access Token，以 `Authorization: Bearer <access_token>` 访问 MCP/业务 API。详见 oauth.md；账号、凭据和整库备份接口不接受 OAuth。
 
     ## 统一响应体
     除 `204 No Content` 及少数裸 JSON 外，成功响应体为：
@@ -40,6 +41,8 @@ servers:
         description: 服务根地址（不含尾部斜杠）
 
 tags:
+  - name: OAuth
+    description: 外部智能体授权、客户端注册、令牌轮换与撤销
   - name: Health
     description: 健康检查（无需认证）
   - name: Auth
@@ -76,6 +79,168 @@ tags:
     description: MCP（Model Context Protocol）AI 智能体接入
 
 paths:
+  /.well-known/oauth-authorization-server:
+    get:
+      tags: [OAuth]
+      summary: OAuth 授权服务器元数据（配置 issuer 后启用）
+      responses:
+        "200":
+          description: RFC 8414 元数据，包括授权、令牌、撤销及可选注册端点
+  /.well-known/oauth-protected-resource:
+    get:
+      tags: [OAuth]
+      summary: OAuth 受保护资源元数据
+      responses:
+        "200":
+          description: RFC 9728 resource、authorization_servers、scopes_supported
+  /oauth/register:
+    post:
+      tags: [OAuth]
+      summary: 动态注册公共客户端（可通过配置关闭）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthClientRegistration"
+      responses:
+        "201":
+          description: client_id、client_name、redirect_uris、grant_types，认证方法 none
+        "400":
+          description: 无效客户端元数据或回调地址
+        "403":
+          description: 动态注册已关闭
+        "429":
+          description: 每个直接网络来源每小时最多注册 20 个客户端
+  /oauth/authorize:
+    get:
+      tags: [OAuth]
+      summary: 浏览器登录和授权确认页
+      parameters:
+        - {name: client_id, in: query, required: true, schema: {type: string}}
+        - {name: redirect_uri, in: query, required: true, schema: {type: string, format: uri}}
+        - {name: response_type, in: query, required: true, schema: {type: string, enum: [code]}}
+        - {name: code_challenge, in: query, required: true, schema: {type: string}}
+        - {name: code_challenge_method, in: query, required: true, schema: {type: string, enum: [S256]}}
+        - {name: scope, in: query, schema: {type: string, default: "data:read"}}
+        - {name: state, in: query, schema: {type: string}}
+        - {name: resource, in: query, schema: {type: string, format: uri}}
+      responses:
+        "200":
+          description: HTML 登录与权限确认表单，包含签名请求和 HttpOnly CSRF Cookie
+        "400":
+          description: 无效授权请求；不会重定向不可信回调
+    post:
+      tags: [OAuth]
+      summary: 用户提交登录和授权决定（浏览器表单）
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [request, decision]
+              properties:
+                request: {type: string, description: GET 返回的签名授权请求}
+                decision: {type: string, enum: [approve, deny]}
+                username: {type: string}
+                password: {type: string, format: password}
+      responses:
+        "303":
+          description: 回调附加 code 或 error，以及 state 和 iss；客户端必须校验 state/iss
+        "400":
+          description: 无效或到期的表单/CSRF 凭据
+        "401":
+          description: 登录失败，返回 HTML 表单
+        "403":
+          description: 不可信 Origin
+        "429":
+          description: 登录锁定
+  /oauth/token:
+    post:
+      tags: [OAuth]
+      summary: 兑换授权码或轮换 Refresh Token
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id]
+              properties:
+                grant_type: {type: string, enum: [authorization_code, refresh_token]}
+                client_id: {type: string}
+                code: {type: string, description: authorization_code 时必填}
+                redirect_uri: {type: string, description: authorization_code 时必填，精确匹配}
+                code_verifier: {type: string, minLength: 43, maxLength: 128, description: authorization_code 时必填}
+                refresh_token: {type: string, description: refresh_token 时必填且仅能使用一次}
+                resource: {type: string, format: uri, description: 与授权资源一致，默认 issuer 加 MCP path}
+                scope: {type: string, description: 刷新时可缩小权限，不可扩大}
+      responses:
+        "200":
+          description: 不可缓存的 OAuth 令牌响应，授权家族固定 30 天有效
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthTokenResponse"
+        "400":
+          description: 标准 OAuth error，例如 invalid_grant、invalid_scope、invalid_client
+  /oauth/revoke:
+    post:
+      tags: [OAuth]
+      summary: 通过 Access/Refresh Token 撤销整个授权家族（幂等）
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [client_id, token]
+              properties:
+                client_id: {type: string}
+                token: {type: string}
+                token_type_hint: {type: string}
+      responses:
+        "200":
+          description: 已处理，未知或不匹配的令牌也返回成功
+  /api/v1/oauth/clients:
+    post:
+      tags: [OAuth]
+      summary: 使用现有账号认证预注册公共客户端（不接受 OAuth）
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthClientRegistration"
+      responses:
+        "201":
+          description: 已注册客户端
+  /api/v1/oauth/grants:
+    get:
+      tags: [OAuth]
+      summary: 查看当前用户的有效 OAuth 授权（不接受 OAuth）
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      responses:
+        "200":
+          description: 裸 JSON grants 数组，包含 id、client_id、scope、resource、created_at、expires_at
+  /api/v1/oauth/grants/{id}:
+    delete:
+      tags: [OAuth]
+      summary: 撤销当前用户的一次授权（不接受 OAuth）
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string}}
+      responses:
+        "204":
+          description: 已撤销
   /health:
     get:
       tags: [Health]
@@ -2490,7 +2655,7 @@ paths:
       operationId: secretList
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       parameters:
         - name: name
           in: query
@@ -2507,8 +2672,8 @@ paths:
           schema:
             type: string
           description: 项目 ID 筛选
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
       responses:
         "200":
           description: 密钥列表（不含密钥值）
@@ -2533,7 +2698,7 @@ paths:
       operationId: secretCreate
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -2568,7 +2733,7 @@ paths:
       operationId: secretGet
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2597,7 +2762,7 @@ paths:
       operationId: secretUpdate
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2638,7 +2803,7 @@ paths:
       operationId: secretPatch
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2673,7 +2838,7 @@ paths:
       operationId: secretDelete
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2695,7 +2860,7 @@ paths:
       operationId: secretGetValue
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2733,7 +2898,7 @@ paths:
       operationId: secretAuditLogsBySecret
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2746,8 +2911,8 @@ paths:
             type: string
             enum: [created, read, updated, deleted, value_read, listed]
           description: 操作类型筛选
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
       responses:
         "200":
           description: 审计日志列表
@@ -2774,7 +2939,7 @@ paths:
       operationId: secretAuditLogsAll
       security:
         - BearerAuth: []
-        - ApiTokenAuth: []
+        - ApiKeyAuth: []
       parameters:
         - name: secret_id
           in: query
@@ -2787,8 +2952,8 @@ paths:
             type: string
             enum: [created, read, updated, deleted, value_read, listed]
           description: 操作类型筛选
-        - $ref: "#/components/parameters/Page"
-        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/pageSize"
       responses:
         "200":
           description: 审计日志列表
@@ -2936,8 +3101,20 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
-      description: 使用 `POST /api/v1/auth/login` 获得的 access token。
+      bearerFormat: JWT or opaque OAuth Access Token
+      description: 使用登录 JWT 或 OAuth Access Token；OAuth 受 scope 限制，不能调用账号/凭据、OAuth 管理和整库备份接口。
+    OAuth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: /oauth/authorize
+          tokenUrl: /oauth/token
+          refreshUrl: /oauth/token
+          scopes:
+            data:read: 读取业务数据和个人资料
+            data:write: 创建、修改和删除业务数据
+            secrets:read: 读取密钥明文及审计日志
+            secrets:write: 创建、修改和删除密钥
     ApiKeyAuth:
       type: apiKey
       in: header
@@ -3070,6 +3247,32 @@ components:
             $ref: "#/components/schemas/EnvelopeError"
 
   schemas:
+    OAuthClientRegistration:
+      type: object
+      required: [redirect_uris]
+      properties:
+        client_name: {type: string, maxLength: 128, default: External agent}
+        redirect_uris:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items: {type: string, format: uri}
+        token_endpoint_auth_method: {type: string, enum: [none]}
+        grant_types:
+          type: array
+          items: {type: string, enum: [authorization_code, refresh_token]}
+        response_types:
+          type: array
+          items: {type: string, enum: [code]}
+    OAuthTokenResponse:
+      type: object
+      required: [access_token, token_type, expires_in, refresh_token, scope]
+      properties:
+        access_token: {type: string}
+        token_type: {type: string, enum: [Bearer]}
+        expires_in: {type: integer, example: 900}
+        refresh_token: {type: string}
+        scope: {type: string, example: "data:read data:write"}
     EnvelopeSuccess:
       type: object
       required: [code, message]

@@ -13,6 +13,7 @@ type Config struct {
 	Server    ServerConfig
 	Database  DatabaseConfig
 	Auth      AuthConfig
+	OAuth     OAuthConfig
 	Scheduler SchedulerConfig
 	MCP       MCPConfig
 	SMTP      SMTPConfig
@@ -40,6 +41,11 @@ type AuthConfig struct {
 	JWTExpiryHours    int
 	LoginLockAttempts int
 	LoginLockMinutes  int
+}
+
+type OAuthConfig struct {
+	Issuer              string
+	DynamicRegistration bool
 }
 
 type SchedulerConfig struct {
@@ -133,6 +139,10 @@ func Load() (*Config, error) {
 			JWTExpiryHours:    envInt("TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS", 24),
 			LoginLockAttempts: envInt("TASK_MANAGER_AUTH_LOGIN_LOCK_ATTEMPTS", 5),
 			LoginLockMinutes:  envInt("TASK_MANAGER_AUTH_LOGIN_LOCK_MINUTES", 15),
+		},
+		OAuth: OAuthConfig{
+			Issuer:              env("TASK_MANAGER_OAUTH_ISSUER", ""),
+			DynamicRegistration: envBool("TASK_MANAGER_OAUTH_DYNAMIC_REGISTRATION", true),
 		},
 		Scheduler: SchedulerConfig{
 			NotificationScanInterval: env("TASK_MANAGER_SCHEDULER_NOTIFICATION_SCAN_INTERVAL", "10m"),

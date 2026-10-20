@@ -14,6 +14,8 @@ import (
 type Router struct {
 	engine          *gin.Engine
 	authHandler     *handler.AuthHandler
+	oauthHandler    *handler.OAuthHandler
+	oauthService    *service.OAuthService
 	unitHandler     *handler.UnitHandler
 	projectHandler  *handler.ProjectHandler
 	todoHandler     *handler.TodoHandler
@@ -33,6 +35,8 @@ type Router struct {
 
 type RouterConfig struct {
 	AuthHandler     *handler.AuthHandler
+	OAuthHandler    *handler.OAuthHandler
+	OAuthService    *service.OAuthService
 	UnitHandler     *handler.UnitHandler
 	ProjectHandler  *handler.ProjectHandler
 	TodoHandler     *handler.TodoHandler
@@ -58,6 +62,8 @@ func NewRouter(cfg *RouterConfig) *Router {
 
 	return &Router{
 		authHandler:     cfg.AuthHandler,
+		oauthHandler:    cfg.OAuthHandler,
+		oauthService:    cfg.OAuthService,
 		unitHandler:     cfg.UnitHandler,
 		projectHandler:  cfg.ProjectHandler,
 		todoHandler:     cfg.TodoHandler,
@@ -93,6 +99,16 @@ func (r *Router) Setup() *gin.Engine {
 		engine.GET(r.mcpPath, r.mcpHandler.GetInfo)
 		engine.GET(r.mcpPath+"/config", r.mcpHandler.GetConfig)
 	}
+	if r.oauthHandler != nil {
+		engine.GET("/.well-known/oauth-authorization-server", r.oauthHandler.Metadata)
+		engine.GET("/.well-known/oauth-protected-resource", r.oauthHandler.ResourceMetadata)
+		engine.GET("/.well-known/oauth-protected-resource"+r.mcpPath, r.oauthHandler.ResourceMetadata)
+		engine.GET("/oauth/authorize", r.oauthHandler.Authorize)
+		engine.POST("/oauth/authorize", r.oauthHandler.Authorize)
+		engine.POST("/oauth/register", r.oauthHandler.Register)
+		engine.POST("/oauth/token", r.oauthHandler.Token)
+		engine.POST("/oauth/revoke", r.oauthHandler.Revoke)
+	}
 
 	api := engine.Group("/api/v1")
 
@@ -104,7 +120,12 @@ func (r *Router) Setup() *gin.Engine {
 
 	// Protected routes
 	protected := api.Group("")
-	protected.Use(middleware.AuthMiddleware(r.jwtManager, r.authService, r.corsOrigins))
+	protected.Use(middleware.AuthMiddleware(r.jwtManager, r.authService, r.corsOrigins, r.oauthService))
+	if r.oauthHandler != nil {
+		protected.POST("/oauth/clients", r.oauthHandler.Register)
+		protected.GET("/oauth/grants", r.oauthHandler.ListGrants)
+		protected.DELETE("/oauth/grants/:id", r.oauthHandler.RevokeGrant)
+	}
 
 	// Auth
 	protected.POST("/auth/logout", r.authHandler.Logout)

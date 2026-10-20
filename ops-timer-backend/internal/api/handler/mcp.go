@@ -1457,17 +1457,19 @@ func toolToHTTP(name string, args map[string]any) (*httpCall, error) {
 // ──────────────────────────────────────────────
 
 type MCPHandler struct {
-	authService *service.AuthService
-	httpClient  *http.Client
-	baseURL     string
-	externalURL string
-	mcpPath     string
-	serverName  string
-	serverVer   string
+	authService  *service.AuthService
+	oauthService *service.OAuthService
+	httpClient   *http.Client
+	baseURL      string
+	externalURL  string
+	mcpPath      string
+	serverName   string
+	serverVer    string
 }
 
 type MCPHandlerConfig struct {
 	AuthService    *service.AuthService
+	OAuthService   *service.OAuthService
 	BaseURL        string
 	ExternalURL    string
 	MCPPath        string
@@ -1518,13 +1520,14 @@ func NewMCPHandler(cfg MCPHandlerConfig) *MCPHandler {
 		mcpPath = "/mcp"
 	}
 	return &MCPHandler{
-		authService: cfg.AuthService,
-		httpClient:  &http.Client{Timeout: time.Duration(timeout) * time.Second},
-		baseURL:     strings.TrimRight(cfg.BaseURL, "/"),
-		externalURL: strings.TrimRight(strings.TrimSpace(cfg.ExternalURL), "/"),
-		mcpPath:     mcpPath,
-		serverName:  serverName,
-		serverVer:   serverVer,
+		authService:  cfg.AuthService,
+		oauthService: cfg.OAuthService,
+		httpClient:   &http.Client{Timeout: time.Duration(timeout) * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }},
+		baseURL:      strings.TrimRight(cfg.BaseURL, "/"),
+		externalURL:  strings.TrimRight(strings.TrimSpace(cfg.ExternalURL), "/"),
+		mcpPath:      mcpPath,
+		serverName:   serverName,
+		serverVer:    serverVer,
 	}
 }
 
@@ -1532,6 +1535,9 @@ func NewMCPHandler(cfg MCPHandlerConfig) *MCPHandler {
 func (h *MCPHandler) Handle(c *gin.Context) {
 	apiToken, ok := h.validateAPIToken(c)
 	if !ok {
+		if h.oauthService != nil {
+			c.Header("WWW-Authenticate", h.oauthService.Challenge("", "data:read"))
+		}
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "MCP token 无效或缺失"})
 		return
 	}
@@ -1564,6 +1570,12 @@ func (h *MCPHandler) Handle(c *gin.Context) {
 		tools := allTools()
 		result := make([]gin.H, 0, len(tools))
 		for _, t := range tools {
+			if scope, delegated := c.Get("oauth_scope"); delegated && t.Name != mcpBackendRequest {
+				call, err := toolToHTTP(t.Name, map[string]any{"id": "scope-check", "resource_id": "scope-check"})
+				if err != nil || !service.OAuthAllows(scope.(string), call.method, call.path) {
+					continue
+				}
+			}
 			result = append(result, gin.H{
 				"name":        t.Name,
 				"description": t.Description,
@@ -1578,6 +1590,28 @@ func (h *MCPHandler) Handle(c *gin.Context) {
 			h.writeError(c, req.ID, -32602, "Invalid params")
 			return
 		}
+		if scope, delegated := c.Get("oauth_scope"); delegated {
+			var method, path string
+			if params.Name == mcpBackendRequest {
+				method = strings.ToUpper(strings.TrimSpace(toString(params.Arguments["method"])))
+				path = strings.TrimSpace(toString(params.Arguments["path"]))
+				if !strings.HasPrefix(path, "/") {
+					path = "/" + path
+				}
+				if safeURL, err := h.buildSafeURL(path, params.Arguments); err == nil {
+					if target, err := url.Parse(safeURL); err == nil {
+						path = target.Path
+					}
+				}
+			} else if call, err := toolToHTTP(params.Name, params.Arguments); err == nil {
+				method, path = call.method, call.path
+			}
+			if method != "" && !service.OAuthAllows(scope.(string), method, path) {
+				c.Header("WWW-Authenticate", h.oauthService.Challenge("insufficient_scope", service.RequiredOAuthScope(method, path)))
+				c.JSON(http.StatusForbidden, gin.H{"error": "insufficient_scope"})
+				return
+			}
+		}
 		h.writeResult(c, req.ID, h.dispatchTool(c.Request.Context(), apiToken, params.Name, params.Arguments))
 
 	default:
@@ -1587,6 +1621,10 @@ func (h *MCPHandler) Handle(c *gin.Context) {
 
 // GetConfig 返回可直接粘贴到 MCP 客户端的 JSON 配置（GET /mcp/config）
 func (h *MCPHandler) GetConfig(c *gin.Context) {
+	if h.oauthService != nil {
+		c.JSON(200, gin.H{"mcpServers": gin.H{h.serverName: gin.H{"url": h.oauthService.Resource}}, "oauth": gin.H{"issuer": h.oauthService.Issuer, "resource": h.oauthService.Resource, "authorization_server_metadata": h.oauthService.Issuer + "/.well-known/oauth-authorization-server", "scopes_supported": service.OAuthScopes}})
+		return
+	}
 	mcpURL := h.externalURL + h.mcpPath
 	if h.externalURL == "" {
 		scheme := "http"
@@ -1620,6 +1658,10 @@ func (h *MCPHandler) GetConfig(c *gin.Context) {
 
 // GetInfo 返回面向人类的 MCP 端点说明页（GET /mcp）
 func (h *MCPHandler) GetInfo(c *gin.Context) {
+	if h.oauthService != nil {
+		h.writeOAuthInfo(c)
+		return
+	}
 	mcpURL := h.externalURL + h.mcpPath
 	if h.externalURL == "" {
 		scheme := "http"
@@ -1821,6 +1863,21 @@ func (h *MCPHandler) dispatchTool(ctx context.Context, apiToken, toolName string
 }
 
 func (h *MCPHandler) validateAPIToken(c *gin.Context) (string, bool) {
+	parts := strings.Fields(c.GetHeader("Authorization"))
+	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") && strings.HasPrefix(parts[1], "ot_") {
+		if h.oauthService == nil {
+			return "", false
+		}
+		identity, err := h.oauthService.ValidateAccess(parts[1])
+		if err != nil {
+			return "", false
+		}
+		c.Set("oauth_scope", identity.Scope)
+		c.Set("oauth_client_id", identity.ClientID)
+		c.Set("oauth_grant_id", identity.GrantID)
+		c.Header("Cache-Control", "no-store")
+		return parts[1], true
+	}
 	token := strings.TrimSpace(c.GetHeader("X-API-Token"))
 	if token == "" {
 		authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
@@ -1859,6 +1916,16 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 	if err != nil {
 		return toolError(err.Error())
 	}
+	if strings.HasPrefix(apiToken, "ot_") {
+		if h.oauthService == nil {
+			return toolError("OAuth 未启用")
+		}
+		identity, err := h.oauthService.ValidateAccess(apiToken)
+		target, parseErr := url.Parse(safeURL)
+		if err != nil || parseErr != nil || !service.OAuthAllows(identity.Scope, method, target.Path) {
+			return toolError("insufficient_scope: 当前授权不允许此操作")
+		}
+	}
 
 	var bodyReader io.Reader
 	if body, exists := args["body"]; exists {
@@ -1873,7 +1940,11 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 	if err != nil {
 		return toolError("创建请求失败: " + err.Error())
 	}
-	req.Header.Set("X-API-Token", apiToken)
+	if strings.HasPrefix(apiToken, "ot_") {
+		req.Header.Set("Authorization", "Bearer "+apiToken)
+	} else {
+		req.Header.Set("X-API-Token", apiToken)
+	}
 	req.Header.Set("Accept", "application/json")
 	if bodyReader != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -1882,7 +1953,7 @@ func (h *MCPHandler) callBackend(ctx context.Context, apiToken string, args map[
 	if headers, ok := args["headers"].(map[string]any); ok {
 		for k, v := range headers {
 			k = strings.TrimSpace(k)
-			if k == "" || strings.EqualFold(k, "X-API-Token") || strings.EqualFold(k, "Host") {
+			if !strings.EqualFold(k, "Accept") && !strings.EqualFold(k, "Content-Type") && !strings.EqualFold(k, "If-Match") && !strings.EqualFold(k, "If-None-Match") {
 				continue
 			}
 			req.Header.Set(k, toString(v))

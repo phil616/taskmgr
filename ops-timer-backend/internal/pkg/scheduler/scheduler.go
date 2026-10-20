@@ -54,6 +54,15 @@ func (s *Scheduler) Stop() {
 	s.cron.Stop()
 }
 
+func (s *Scheduler) AddMaintenanceJob(interval string, job func() error) error {
+	_, err := s.cron.AddFunc("@every "+interval, func() {
+		if err := job(); err != nil {
+			s.logger.Error("maintenance failed", zap.Error(err))
+		}
+	})
+	return err
+}
+
 func (s *Scheduler) scanNotifications() {
 	units, err := s.unitRepo.FindActiveUnits()
 	if err != nil {

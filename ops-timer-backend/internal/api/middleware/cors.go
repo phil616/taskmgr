@@ -24,6 +24,7 @@ func CORSMiddleware(allowedOrigins []string) gin.HandlerFunc {
 			"Authorization", "Content-Type", "X-API-Token", "Accept", "X-Taskmgr-Browser",
 		}, ", "))
 		c.Header("Access-Control-Max-Age", "86400")
+		c.Header("Access-Control-Expose-Headers", "WWW-Authenticate")
 
 		// 仅当来源在白名单中时才允许跨域请求并携带凭证
 		// 注意：Allow-Credentials 不得与 Allow-Origin: * 组合（浏览器规范禁止）

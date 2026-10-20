@@ -101,3 +101,6 @@ curl http://localhost:8080/mcp/config
 
 - 新增或变更 API 时，请**同步更新** `openapi.yaml`，并保持与 `internal/api/router` 及 DTO 一致。
 - 版本号：在 `openapi.yaml` 的 `info.version` 中与发布版本对齐（或采用独立 API 版本号策略并在文档中说明）。
+## OAuth 智能体认证
+
+OAuth 发现、客户端注册、浏览器授权、令牌刷新/撤销及权限范围见 [oauth.md](oauth.md)。设置 `TASK_MANAGER_OAUTH_ISSUER` 后启用。业务 API 的 Bearer 头同时接受 JWT 和 OAuth Access Token，OAuth 权限限制详见该文档。

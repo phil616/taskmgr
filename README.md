@@ -9,7 +9,7 @@
 - **TODO待办**：轻量级待办事项管理，支持分组、批量操作，以及 [0,1] 范围的重要程度和困难程度
 - **笔记管理**：Markdown 笔记 CRUD、分组、标签与全文关键词搜索；随时保存草稿、恢复继续编辑、全文复制
 - **通知提醒**：后台定时扫描，自动生成到期/超期提醒
-- **认证方式**：JWT + API Token 双认证方式
+- **认证方式**：浏览器会话、JWT、API Token，以及面向外部智能体的 OAuth 授权码 + PKCE
 - **RESTful API**：完整的 REST API，支持脚本和第三方集成
 - **MCP 接入**：支持 AI 智能体通过 MCP + API Token 调用全部后端能力
 
@@ -138,6 +138,8 @@ cd-v2/
 ```
 
 ## API 认证
+
+**外部智能体 OAuth：** 设置 `TASK_MANAGER_OAUTH_ISSUER=https://你的后端域名` 并重启，即可通过浏览器登录确认，授权 MCP/REST 客户端。支持自动发现、动态注册、读写权限、15 分钟 Access Token、刷新轮换和撤销；原有登录方式继续可用。配置和对接步骤见 [OAuth 接入文档](ops-timer-backend/docs/oauth.md)。
 
 **JWT 认证：**
 
@@ -269,6 +271,8 @@ curl -X POST http://localhost:8080/mcp \
 | `TASK_MANAGER_INIT_ADMIN_PASSWORD` | 初始管理员密码，仅首次创建 | Admin@12345（请替换） |
 | `TASK_MANAGER_AUTH_JWT_SECRET` | JWT 密钥 | 需修改 |
 | `TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS` | JWT 过期时间（小时） | 24 |
+| `TASK_MANAGER_OAUTH_ISSUER` | OAuth 外部 HTTPS 来源，无路径；空值不启用 | 空 |
+| `TASK_MANAGER_OAUTH_DYNAMIC_REGISTRATION` | 允许智能体自行注册 OAuth 公共客户端 | true |
 | `TASK_MANAGER_SCHEDULER_NOTIFICATION_SCAN_INTERVAL` | 通知扫描间隔 | 10m |
 | `TASK_MANAGER_MCP_ENABLED` | 是否启用 MCP | true |
 | `TASK_MANAGER_MCP_PATH` | MCP 路由路径 | /mcp |
