@@ -174,7 +174,8 @@ func (s *AuthService) EnsureAdminExists(username, password string) error {
 		return err
 	}
 	if count > 0 {
-		return nil
+		// Existing installations had no roles. Promote the original account once.
+		return s.userRepo.EnsureInitialAdmin()
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
@@ -188,6 +189,7 @@ func (s *AuthService) EnsureAdminExists(username, password string) error {
 	}
 
 	user := &model.User{
+		IsAdmin:      true,
 		ID:           uuid.New().String(),
 		Username:     username,
 		PasswordHash: string(hash),
@@ -204,6 +206,7 @@ func (s *AuthService) FindByAPIToken(token string) (*model.User, error) {
 
 func (s *AuthService) toUserResponse(user *model.User) dto.UserResponse {
 	return dto.UserResponse{
+		IsAdmin:     user.IsAdmin,
 		ID:          user.ID,
 		Username:    user.Username,
 		DisplayName: user.DisplayName,

@@ -43,6 +43,7 @@ type AuthConfig struct {
 	LoginLockMinutes  int
 }
 
+// OAuthConfig and MCPConfig are legacy bootstrap values, imported once into PostgreSQL.
 type OAuthConfig struct {
 	Issuer              string
 	DynamicRegistration bool
@@ -104,7 +105,7 @@ func envBool(key string, fallback bool) bool {
 }
 
 // Load 从 .env 文件与环境变量加载配置。
-// 所有配置项通过 TASK_MANAGER_* 前缀的环境变量读取。
+// 启动配置通过 TASK_MANAGER_* 环境变量读取；MCP/OAuth 仅供首次数据库迁移使用。
 // 自动加载同目录下的 .env 文件（若存在），方便本地开发。
 // 已在 shell 中导出的同名变量优先级高于 .env（godotenv 不覆盖已有环境变量）。
 func Load() (*Config, error) {

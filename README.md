@@ -139,7 +139,7 @@ cd-v2/
 
 ## API 认证
 
-**外部智能体 OAuth：** 设置 `TASK_MANAGER_OAUTH_ISSUER=https://你的后端域名` 并重启，即可通过浏览器登录确认，授权 MCP/REST 客户端。支持自动发现、动态注册、读写权限、15 分钟 Access Token、刷新轮换和撤销；原有登录方式继续可用。配置和对接步骤见 [OAuth 接入文档](ops-timer-backend/docs/oauth.md)。
+**外部智能体 OAuth：** 管理员登录「系统设置 → MCP 与 OAuth 管理」，启用 OAuth 并填写后端外部 HTTPS 来源，保存后立即生效，即可通过浏览器登录确认，授权 MCP/REST 客户端。支持自动发现、动态注册、读写权限、15 分钟 Access Token、刷新轮换和撤销；原有登录方式继续可用。配置和对接步骤见 [OAuth 接入文档](ops-timer-backend/docs/oauth.md)。
 
 **JWT 认证：**
 
@@ -163,7 +163,7 @@ curl http://localhost:8080/api/v1/units \
 
 ## MCP 接入（AI 智能体）
 
-后端内置 MCP 服务器（默认 `POST /mcp`），提供 **80 个专用工具**，覆盖全部后端功能。智能体通过一个 MCP 配置即可完全操控所有数据。
+管理员可在「系统设置 → MCP 与 OAuth 管理」设置认证方式并复制客户端配置。后端内置 MCP 服务器（默认 `POST /mcp`），提供 **80 个专用工具**，覆盖全部后端功能。智能体通过一个 MCP 配置即可完全操控所有数据。
 
 ### 一键获取配置
 
@@ -258,7 +258,7 @@ curl -X POST http://localhost:8080/mcp \
 
 ## 配置说明
 
-所有配置通过 `TASK_MANAGER_*` 环境变量读取，也可将变量写入 `.env` 文件（放在启动命令的当前工作目录），程序启动时自动加载。
+数据库、网站登录、SMTP 等启动配置通过 `TASK_MANAGER_*` 环境变量或当前工作目录的 `.env` 文件读取。MCP 与 OAuth 的服务开关、认证方式、接入路径、外部地址、名称、版本、超时及动态注册由管理员在「系统设置 → MCP 与 OAuth 管理」维护，持久化到 PostgreSQL，保存后立即生效。升级时仅首次导入旧 MCP/OAuth 环境变量，后续启动不会覆盖管理员设置。配置与认证机制见 [MCP 管理说明](ops-timer-backend/docs/mcp-admin-settings.md)。
 
 环境变量模板：[`ops-timer-backend/env.example`](ops-timer-backend/env.example)。
 
@@ -271,12 +271,7 @@ curl -X POST http://localhost:8080/mcp \
 | `TASK_MANAGER_INIT_ADMIN_PASSWORD` | 初始管理员密码，仅首次创建 | Admin@12345（请替换） |
 | `TASK_MANAGER_AUTH_JWT_SECRET` | JWT 密钥 | 需修改 |
 | `TASK_MANAGER_AUTH_JWT_EXPIRY_HOURS` | JWT 过期时间（小时） | 24 |
-| `TASK_MANAGER_OAUTH_ISSUER` | OAuth 外部 HTTPS 来源，无路径；空值不启用 | 空 |
-| `TASK_MANAGER_OAUTH_DYNAMIC_REGISTRATION` | 允许智能体自行注册 OAuth 公共客户端 | true |
 | `TASK_MANAGER_SCHEDULER_NOTIFICATION_SCAN_INTERVAL` | 通知扫描间隔 | 10m |
-| `TASK_MANAGER_MCP_ENABLED` | 是否启用 MCP | true |
-| `TASK_MANAGER_MCP_PATH` | MCP 路由路径 | /mcp |
-| `TASK_MANAGER_MCP_EXTERNAL_URL` | MCP 对外地址（用于配置端点自动生成 URL） | 自动检测 |
 
 ## TODO 评分字段
 

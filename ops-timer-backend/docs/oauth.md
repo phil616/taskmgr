@@ -6,18 +6,15 @@
 
 ## 部署
 
-在实际注入后端的环境变量中设置以下配置并重启；启动会自动创建四张 OAuth 表：
+管理员登录「系统设置 → MCP 与 OAuth 管理」，启用 OAuth 并填写授权服务器地址（issuer），按需启用动态注册，保存后立即生效。后端自动创建 OAuth 表和 `mcp_settings` 单例配置表，不再通过修改 `.env` 或重启应用管理这些设置。
 
-```dotenv
-TASK_MANAGER_OAUTH_ISSUER=https://tasks.example.com
-TASK_MANAGER_OAUTH_DYNAMIC_REGISTRATION=true
-```
+issuer 必须为后端的外部 HTTPS 来源，不带路径；本地开发允许 `http://localhost:8080` 或 loopback IP。服务不会从 Host 或转发请求头推断可信 issuer。`TASK_MANAGER_AUTH_JWT_SECRET` 仍为网站登录使用的启动密钥（至少 32 字节），也用于签名十分钟有效的授权确认表单；多副本须使用相同密钥和 PostgreSQL。
 
-`ISSUER` 必须为后端的外部 HTTPS 来源，不带路径；本地开发允许 `http://localhost:8080` 或 loopback IP。空值表示不启用 OAuth，服务不会从 Host 或转发请求头推断可信 issuer。`TASK_MANAGER_AUTH_JWT_SECRET` 至少 32 字节，也用于签名十分钟有效的授权确认表单；多副本须使用同一配置及 PostgreSQL。
+升级时只在配置表没有记录时导入旧 `TASK_MANAGER_OAUTH_*` 和 `TASK_MANAGER_MCP_*` 值，之后数据库是唯一运行时配置来源。首次安装默认启用 MCP/API Token，OAuth 关闭。管理员角色和迁移细节见 [MCP 管理说明](mcp-admin-settings.md)。
 
 反向代理须原样转发 `/oauth/`、`/.well-known/`、`/mcp` 和 `/api/`，包含查询参数、请求体、Authorization、Cookie、Set-Cookie、Location 和 WWW-Authenticate 响应头。仓库内 Nginx 已包含这些规则。外部 HTTPS 可在代理处终止；OAuth Cookie 是否 Secure 由 issuer 决定。授权页面直接由后端渲染，无需部署新版前端。
 
-默认规范资源地址是 `<issuer>/mcp`，自定义 `TASK_MANAGER_MCP_PATH` 时随之改变；它表示同一任务管理器的 MCP 和 REST API，授权令牌可用于两种入口。部署时不要改变或隐藏这个地址。`TASK_MANAGER_MCP_EXTERNAL_URL` 是旧 API Token 配置的展示选项，OAuth 使用固定 issuer。
+默认规范资源地址是 `<issuer>/mcp`，管理员自定义 MCP 接入路径时随之改变；它表示同一任务管理器的 MCP 和 REST API，授权令牌可用于两种入口。部署时不要改变或隐藏这个地址。管理员设置的“外部服务地址”是 API Token 配置的展示选项，OAuth 使用固定 issuer。
 
 ## MCP 客户端
 

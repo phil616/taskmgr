@@ -103,4 +103,4 @@ curl http://localhost:8080/mcp/config
 - 版本号：在 `openapi.yaml` 的 `info.version` 中与发布版本对齐（或采用独立 API 版本号策略并在文档中说明）。
 ## OAuth 智能体认证
 
-OAuth 发现、客户端注册、浏览器授权、令牌刷新/撤销及权限范围见 [oauth.md](oauth.md)。设置 `TASK_MANAGER_OAUTH_ISSUER` 后启用。业务 API 的 Bearer 头同时接受 JWT 和 OAuth Access Token，OAuth 权限限制详见该文档。
+OAuth 发现、客户端注册、浏览器授权、令牌刷新/撤销及权限范围见 [oauth.md](oauth.md)。由管理员在「系统设置 → MCP 与 OAuth 管理」启用并填写 issuer，保存即生效。管理员配置接口、迁移和权限见 [mcp-admin-settings.md](mcp-admin-settings.md)。业务 API 的 Bearer 头同时接受 JWT 和 OAuth Access Token，OAuth 权限限制详见该文档。

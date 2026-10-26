@@ -193,11 +193,13 @@
         </v-card>
       </v-col>
     </v-row>
+    <MCPSettingsPanel v-if="auth.user?.is_admin" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import MCPSettingsPanel from '@/components/MCPSettingsPanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
 import { backupApi, type BackupImportStrategy } from '@/api/backup'

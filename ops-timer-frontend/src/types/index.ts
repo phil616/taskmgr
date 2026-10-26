@@ -19,6 +19,7 @@ export interface FieldError {
 }
 
 export interface User {
+  is_admin: boolean
   id: string
   username: string
   display_name: string

@@ -31,6 +31,7 @@ type Router struct {
 	logger          *zap.Logger
 	corsOrigins     []string
 	mcpPath         string
+	mcpSettings     *service.MCPSettingsService
 }
 
 type RouterConfig struct {
@@ -52,6 +53,7 @@ type RouterConfig struct {
 	Logger          *zap.Logger
 	CorsOrigins     []string
 	MCPPath         string
+	MCPSettings     *service.MCPSettingsService
 }
 
 func NewRouter(cfg *RouterConfig) *Router {
@@ -79,6 +81,7 @@ func NewRouter(cfg *RouterConfig) *Router {
 		logger:          cfg.Logger,
 		corsOrigins:     cfg.CorsOrigins,
 		mcpPath:         mcpPath,
+		mcpSettings:     cfg.MCPSettings,
 	}
 }
 
@@ -90,16 +93,27 @@ func (r *Router) Setup() *gin.Engine {
 	engine.Use(middleware.BodySizeLimitMiddleware(32 << 20)) // 32 MiB 请求体上限
 	engine.Use(middleware.CORSMiddleware(r.corsOrigins))
 	engine.Use(middleware.LoggerMiddleware(r.logger))
+	if r.mcpSettings != nil {
+		engine.Use(r.integrationMiddleware())
+	}
 
 	engine.GET("/health", func(c *gin.Context) {
 		response.Success(c, gin.H{"status": "ok"})
 	})
-	if r.mcpHandler != nil {
+	if r.mcpHandler != nil && r.mcpSettings == nil {
 		engine.POST(r.mcpPath, r.mcpHandler.Handle)
 		engine.GET(r.mcpPath, r.mcpHandler.GetInfo)
 		engine.GET(r.mcpPath+"/config", r.mcpHandler.GetConfig)
 	}
-	if r.oauthHandler != nil {
+	if r.mcpSettings != nil {
+		engine.GET("/.well-known/oauth-authorization-server", r.dynamicOAuth((*handler.OAuthHandler).Metadata))
+		engine.GET("/.well-known/oauth-protected-resource", r.dynamicOAuth((*handler.OAuthHandler).ResourceMetadata))
+		engine.GET("/oauth/authorize", r.dynamicOAuth((*handler.OAuthHandler).Authorize))
+		engine.POST("/oauth/authorize", r.dynamicOAuth((*handler.OAuthHandler).Authorize))
+		engine.POST("/oauth/register", r.dynamicOAuth((*handler.OAuthHandler).Register))
+		engine.POST("/oauth/token", r.dynamicOAuth((*handler.OAuthHandler).Token))
+		engine.POST("/oauth/revoke", r.dynamicOAuth((*handler.OAuthHandler).Revoke))
+	} else if r.oauthHandler != nil {
 		engine.GET("/.well-known/oauth-authorization-server", r.oauthHandler.Metadata)
 		engine.GET("/.well-known/oauth-protected-resource", r.oauthHandler.ResourceMetadata)
 		engine.GET("/.well-known/oauth-protected-resource"+r.mcpPath, r.oauthHandler.ResourceMetadata)
@@ -121,7 +135,15 @@ func (r *Router) Setup() *gin.Engine {
 	// Protected routes
 	protected := api.Group("")
 	protected.Use(middleware.AuthMiddleware(r.jwtManager, r.authService, r.corsOrigins, r.oauthService))
-	if r.oauthHandler != nil {
+	if r.mcpSettings != nil {
+		settingsHandler := handler.NewMCPSettingsHandler(r.mcpSettings)
+		admin := protected.Group("/admin", middleware.AdminMiddleware(r.authService))
+		admin.GET("/mcp-settings", settingsHandler.Get)
+		admin.PUT("/mcp-settings", settingsHandler.Update)
+		protected.POST("/oauth/clients", r.dynamicOAuth((*handler.OAuthHandler).Register))
+		protected.GET("/oauth/grants", r.dynamicOAuth((*handler.OAuthHandler).ListGrants))
+		protected.DELETE("/oauth/grants/:id", r.dynamicOAuth((*handler.OAuthHandler).RevokeGrant))
+	} else if r.oauthHandler != nil {
 		protected.POST("/oauth/clients", r.oauthHandler.Register)
 		protected.GET("/oauth/grants", r.oauthHandler.ListGrants)
 		protected.DELETE("/oauth/grants/:id", r.oauthHandler.RevokeGrant)

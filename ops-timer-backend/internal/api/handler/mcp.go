@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"ops-timer-backend/internal/model"
 	"ops-timer-backend/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -1457,25 +1459,27 @@ func toolToHTTP(name string, args map[string]any) (*httpCall, error) {
 // ──────────────────────────────────────────────
 
 type MCPHandler struct {
-	authService  *service.AuthService
-	oauthService *service.OAuthService
-	httpClient   *http.Client
-	baseURL      string
-	externalURL  string
-	mcpPath      string
-	serverName   string
-	serverVer    string
+	authService     *service.AuthService
+	oauthService    *service.OAuthService
+	httpClient      *http.Client
+	baseURL         string
+	externalURL     string
+	mcpPath         string
+	serverName      string
+	serverVer       string
+	disableAPIToken bool
 }
 
 type MCPHandlerConfig struct {
-	AuthService    *service.AuthService
-	OAuthService   *service.OAuthService
-	BaseURL        string
-	ExternalURL    string
-	MCPPath        string
-	ServerName     string
-	ServerVersion  string
-	TimeoutSeconds int
+	AuthService     *service.AuthService
+	OAuthService    *service.OAuthService
+	BaseURL         string
+	ExternalURL     string
+	MCPPath         string
+	ServerName      string
+	ServerVersion   string
+	TimeoutSeconds  int
+	DisableAPIToken bool
 }
 
 type mcpRequest struct {
@@ -1520,15 +1524,29 @@ func NewMCPHandler(cfg MCPHandlerConfig) *MCPHandler {
 		mcpPath = "/mcp"
 	}
 	return &MCPHandler{
-		authService:  cfg.AuthService,
-		oauthService: cfg.OAuthService,
-		httpClient:   &http.Client{Timeout: time.Duration(timeout) * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }},
-		baseURL:      strings.TrimRight(cfg.BaseURL, "/"),
-		externalURL:  strings.TrimRight(strings.TrimSpace(cfg.ExternalURL), "/"),
-		mcpPath:      mcpPath,
-		serverName:   serverName,
-		serverVer:    serverVer,
+		disableAPIToken: cfg.DisableAPIToken,
+		authService:     cfg.AuthService,
+		oauthService:    cfg.OAuthService,
+		httpClient:      &http.Client{Timeout: time.Duration(timeout) * time.Second, CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }},
+		baseURL:         strings.TrimRight(cfg.BaseURL, "/"),
+		externalURL:     strings.TrimRight(strings.TrimSpace(cfg.ExternalURL), "/"),
+		mcpPath:         mcpPath,
+		serverName:      serverName,
+		serverVer:       serverVer,
 	}
+}
+
+// Configured returns an immutable request snapshot; shared handlers are never mutated.
+func (h *MCPHandler) Configured(s *model.MCPSettings, oauth *service.OAuthService) *MCPHandler {
+	copy := *h
+	copy.oauthService = oauth
+	copy.mcpPath, copy.externalURL = s.Path, s.ExternalURL
+	copy.serverName, copy.serverVer = s.ServerName, s.ServerVersion
+	copy.disableAPIToken = !s.APITokenEnabled
+	client := *h.httpClient
+	client.Timeout = time.Duration(s.TimeoutSeconds) * time.Second
+	copy.httpClient = &client
+	return &copy
 }
 
 // Handle 处理 MCP JSON-RPC 请求（POST /mcp）
@@ -1716,16 +1734,9 @@ func (h *MCPHandler) GetInfo(c *gin.Context) {
 		toolListHTML.WriteString(`</ul></div>`)
 	}
 
-	configJSON := fmt.Sprintf(`{
-  "mcpServers": {
-    "%s": {
-      "url": "%s",
-      "headers": {
-        "X-API-Token": "<your-api-token>"
-      }
-    }
-  }
-}`, h.serverName, mcpURL)
+	configJSON, _ := json.MarshalIndent(gin.H{"mcpServers": gin.H{h.serverName: gin.H{
+		"url": mcpURL, "headers": gin.H{"X-API-Token": "<your-api-token>"},
+	}}}, "", "  ")
 
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="zh-CN">
@@ -1823,11 +1834,11 @@ function copyConfig(btn){
 </script>
 </body>
 </html>`,
-		h.serverName,
-		h.serverName, h.serverVer,
-		configJSON,
+		html.EscapeString(h.serverName),
+		html.EscapeString(h.serverName), html.EscapeString(h.serverVer),
+		html.EscapeString(string(configJSON)),
 		len(tools), toolListHTML.String(),
-		mcpProtocolVersion, mcpURL,
+		mcpProtocolVersion, html.EscapeString(mcpURL),
 	)
 
 	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(html))
@@ -1877,6 +1888,9 @@ func (h *MCPHandler) validateAPIToken(c *gin.Context) (string, bool) {
 		c.Set("oauth_grant_id", identity.GrantID)
 		c.Header("Cache-Control", "no-store")
 		return parts[1], true
+	}
+	if h.disableAPIToken {
+		return "", false
 	}
 	token := strings.TrimSpace(c.GetHeader("X-API-Token"))
 	if token == "" {

@@ -75,6 +75,8 @@ tags:
     description: 密钥管理（明文存储，含审计日志）
   - name: SecretAuditLogs
     description: 密钥审计日志
+  - name: Admin
+    description: 管理员系统配置（仅管理员网站会话或登录 JWT）
   - name: MCP
     description: MCP（Model Context Protocol）AI 智能体接入
 
@@ -82,7 +84,7 @@ paths:
   /.well-known/oauth-authorization-server:
     get:
       tags: [OAuth]
-      summary: OAuth 授权服务器元数据（配置 issuer 后启用）
+      summary: OAuth 授权服务器元数据（管理员启用 OAuth 后提供）
       responses:
         "200":
           description: RFC 8414 元数据，包括授权、令牌、撤销及可选注册端点
@@ -2973,6 +2975,52 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+  /api/v1/admin/mcp-settings:
+    get:
+      tags: [Admin]
+      summary: 读取 MCP 与 OAuth 系统设置
+      description: 仅允许 is_admin 用户的网站登录 JWT 或通过浏览器请求检查的会话 Cookie；拒绝 API Token 和 OAuth 凭据。
+      security:
+        - BearerAuth: []
+        - BrowserSession: []
+      responses:
+        "200":
+          description: 完整设置、最后修改者与修改时间（统一响应体的 data 字段）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: {type: integer}
+                  message: {type: string}
+                  data: {$ref: "#/components/schemas/MCPSettings"}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 非管理员或使用集成凭据
+    put:
+      tags: [Admin]
+      summary: 保存 MCP 与 OAuth 系统设置，立即生效
+      description: 提交完整设置对象；启用 MCP 时至少保留一种认证方式。路径不能占用 API、OAuth、health 等系统路由。
+      security:
+        - BearerAuth: []
+        - BrowserSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MCPSettings"
+      responses:
+        "200":
+          description: 保存成功，统一响应体 data 为完整 MCPSettings
+        "400":
+          description: 设置不完整、类型错误或配置无效
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: 非管理员或使用集成凭据
+
   # ── MCP ────────────────────────────────────────────────────────────
 
   /mcp:
@@ -2995,10 +3043,11 @@ paths:
       summary: MCP JSON-RPC 端点（AI 智能体接入）
       description: |
         接受 JSON-RPC 2.0 请求，支持 `initialize`、`tools/list`、`tools/call` 方法。
-        认证方式：`X-API-Token` 请求头或 `Authorization: Bearer <api_token>`。
+        使用管理员启用的 API Token 或 OAuth 认证。API Token 支持 `X-API-Token` 或 Bearer；OAuth 支持 Bearer Access Token，权限受 scope 限制。此处 /mcp 为默认路径，实际接入路径由管理员设置。
       operationId: mcpHandle
       security:
         - ApiKeyAuth: []
+        - OAuth2: []
       requestBody:
         required: true
         content:
@@ -3098,6 +3147,11 @@ paths:
 
 components:
   securitySchemes:
+    BrowserSession:
+      type: apiKey
+      in: cookie
+      name: taskmgr_session
+      description: 网站 HttpOnly 会话；还需 X-Taskmgr-Browser 请求头与有效 Origin。
     BearerAuth:
       type: http
       scheme: bearer
@@ -3247,6 +3301,23 @@ components:
             $ref: "#/components/schemas/EnvelopeError"
 
   schemas:
+    MCPSettings:
+      type: object
+      required: [enabled, path, external_url, server_name, server_version, timeout_seconds, api_token_enabled, oauth_enabled, oauth_issuer, oauth_dynamic_registration]
+      properties:
+        enabled: {type: boolean, default: true}
+        path: {type: string, example: /mcp, maxLength: 200}
+        external_url: {type: string, example: "https://tasks.example.com"}
+        server_name: {type: string, minLength: 1, maxLength: 100}
+        server_version: {type: string, minLength: 1, maxLength: 50}
+        timeout_seconds: {type: integer, minimum: 1, maximum: 300}
+        api_token_enabled: {type: boolean, default: true}
+        oauth_enabled: {type: boolean, default: false}
+        oauth_issuer: {type: string, example: "https://tasks.example.com"}
+        oauth_dynamic_registration: {type: boolean, default: true}
+        updated_by: {type: string, readOnly: true}
+        updated_at: {type: string, format: date-time, readOnly: true}
+
     OAuthClientRegistration:
       type: object
       required: [redirect_uris]
@@ -3354,8 +3425,11 @@ components:
 
     UserResponse:
       type: object
-      required: [id, username, display_name, email, created_at, updated_at]
+      required: [id, username, is_admin, display_name, email, created_at, updated_at]
       properties:
+        is_admin:
+          type: boolean
+          readOnly: true
         id:
           type: string
         username:

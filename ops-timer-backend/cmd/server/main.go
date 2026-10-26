@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -79,19 +80,9 @@ func main() {
 
 	// Services — login attempts backed by PostgreSQL
 	authService := service.NewAuthService(userRepo, repository.NewBrowserSessionRepository(db), loginAttemptRepo, jwtManager, &cfg.Auth)
-	var oauthService *service.OAuthService
-	var oauthHandler *handler.OAuthHandler
-	if cfg.OAuth.Issuer != "" {
-		resourcePath := cfg.MCP.Path
-		if resourcePath == "" {
-			resourcePath = "/mcp"
-		}
-		oauthService, err = service.NewOAuthService(db, authService, cfg.OAuth.Issuer, resourcePath, cfg.Auth.JWTSecret, cfg.OAuth.DynamicRegistration)
-		if err != nil {
-			zapLogger.Fatal("OAuth 配置无效", zap.Error(err))
-		}
-		oauthHandler = handler.NewOAuthHandler(oauthService)
-		zapLogger.Info("OAuth 授权服务已启用", zap.String("issuer", oauthService.Issuer))
+	mcpSettings := service.NewMCPSettingsService(db, authService, cfg.Auth.JWTSecret)
+	if err := mcpSettings.Initialize(context.Background(), cfg); err != nil {
+		zapLogger.Fatal("初始化 MCP 设置失败", zap.Error(err))
 	}
 	unitService := service.NewUnitService(unitRepo, unitLogRepo)
 	projectService := service.NewProjectService(projectRepo, unitRepo, txRepo)
@@ -127,28 +118,14 @@ func main() {
 	budgetHandler := handler.NewBudgetHandler(budgetService)
 	secretHandler := handler.NewSecretHandler(secretService)
 	backupHandler := handler.NewBackupHandler(backupService)
-	var mcpHandler *handler.MCPHandler
-	if cfg.MCP.Enabled {
-		mcpHandler = handler.NewMCPHandler(handler.MCPHandlerConfig{
-			AuthService:    authService,
-			OAuthService:   oauthService,
-			BaseURL:        fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port),
-			ExternalURL:    cfg.MCP.ExternalURL,
-			MCPPath:        cfg.MCP.Path,
-			ServerName:     cfg.MCP.ServerName,
-			ServerVersion:  cfg.MCP.ServerVersion,
-			TimeoutSeconds: cfg.MCP.TimeoutSeconds,
-		})
-		zapLogger.Info("MCP 服务已启用", zap.String("path", cfg.MCP.Path))
-	} else {
-		zapLogger.Info("MCP 服务未启用")
-	}
+	mcpHandler := handler.NewMCPHandler(handler.MCPHandlerConfig{
+		AuthService: authService,
+		BaseURL:     fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port),
+	})
 
 	// Router
 	r := router.NewRouter(&router.RouterConfig{
 		AuthHandler:     authHandler,
-		OAuthHandler:    oauthHandler,
-		OAuthService:    oauthService,
 		UnitHandler:     unitHandler,
 		ProjectHandler:  projectHandler,
 		TodoHandler:     todoHandler,
@@ -163,18 +140,30 @@ func main() {
 		AuthService:     authService,
 		Logger:          zapLogger,
 		CorsOrigins:     cfg.Server.CorsOrigins,
-		MCPPath:         cfg.MCP.Path,
+		MCPSettings:     mcpSettings,
 	})
 
 	engine := r.Setup()
 
 	// Scheduler
 	sched := scheduler.NewScheduler(unitRepo, notifRepo, userRepo, emailSvc, zapLogger)
-	if oauthService != nil {
-		if err := sched.AddMaintenanceJob("1h", oauthService.CleanupExpired); err != nil {
-			zapLogger.Fatal("注册 OAuth 清理任务失败", zap.Error(err))
+	if err := sched.AddMaintenanceJob("1h", func() error {
+		settings, err := mcpSettings.Get(context.Background())
+		if err != nil {
+			return err
 		}
+		oauth, err := mcpSettings.OAuth(settings)
+		if err != nil {
+			return err
+		}
+		if oauth == nil {
+			return nil
+		}
+		return oauth.CleanupExpired()
+	}); err != nil {
+		zapLogger.Fatal("注册 OAuth 清理任务失败", zap.Error(err))
 	}
+
 	if err := sched.Start(cfg.Scheduler.NotificationScanInterval); err != nil {
 		zapLogger.Error("启动定时任务失败", zap.Error(err))
 	}
@@ -227,6 +216,7 @@ func initDatabase(cfg config.DatabaseConfig) *gorm.DB {
 func autoMigrate(db *gorm.DB) {
 	err := db.AutoMigrate(
 		&model.User{},
+		&model.MCPSettings{},
 		&model.BrowserSession{},
 		&model.OAuthClient{},
 		&model.OAuthCode{},

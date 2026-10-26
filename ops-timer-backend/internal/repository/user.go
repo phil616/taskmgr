@@ -55,6 +55,23 @@ func (r *UserRepository) Count() (int64, error) {
 	return count, err
 }
 
+func (r *UserRepository) EnsureInitialAdmin() error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var count int64
+		if err := tx.Model(&model.User{}).Where("is_admin = true").Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return nil
+		}
+		var first model.User
+		if err := tx.Order("created_at ASC, id ASC").First(&first).Error; err != nil {
+			return err
+		}
+		return tx.Model(&first).Update("is_admin", true).Error
+	})
+}
+
 // FindAllWithEmail 返回所有设置了邮箱的用户
 func (r *UserRepository) FindAllWithEmail() ([]model.User, error) {
 	var users []model.User

@@ -15,6 +15,11 @@ func AuthMiddleware(jwtManager *auth.JWTManager, authService *service.AuthServic
 		oauth = oauthServices[0]
 	}
 	return func(c *gin.Context) {
+		// Each request uses one snapshot when administrators update settings.
+		oauth := oauth
+		if current, exists := c.Get("oauth_service"); exists {
+			oauth, _ = current.(*service.OAuthService)
+		}
 		// Delegated OAuth credentials are checked before unrestricted legacy credentials.
 		authHeader := c.GetHeader("Authorization")
 		if authHeader != "" {
@@ -30,6 +35,7 @@ func AuthMiddleware(jwtManager *auth.JWTManager, authService *service.AuthServic
 								return
 							}
 							c.Set("user_id", identity.UserID)
+							c.Set("auth_method", "oauth")
 							c.Set("username", identity.Username)
 							c.Set("oauth_client_id", identity.ClientID)
 							c.Set("oauth_grant_id", identity.GrantID)
@@ -44,6 +50,7 @@ func AuthMiddleware(jwtManager *auth.JWTManager, authService *service.AuthServic
 				}
 				claims, err := jwtManager.ValidateToken(parts[1])
 				if err == nil {
+					c.Set("auth_method", "jwt")
 					c.Set("user_id", claims.UserID)
 					c.Set("username", claims.Username)
 					c.Set("token", parts[1])
@@ -58,6 +65,7 @@ func AuthMiddleware(jwtManager *auth.JWTManager, authService *service.AuthServic
 		if apiToken != "" {
 			user, err := authService.FindByAPIToken(apiToken)
 			if err == nil {
+				c.Set("auth_method", "api_token")
 				c.Set("user_id", user.ID)
 				c.Set("username", user.Username)
 				c.Next()
@@ -71,6 +79,7 @@ func AuthMiddleware(jwtManager *auth.JWTManager, authService *service.AuthServic
 				return
 			}
 			if user, err := authService.ValidateBrowserSession(token); err == nil {
+				c.Set("auth_method", "cookie")
 				c.Set("user_id", user.ID)
 				c.Set("username", user.Username)
 				c.Header("Cache-Control", "no-store")

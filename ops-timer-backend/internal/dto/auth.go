@@ -11,6 +11,7 @@ type LoginResponse struct {
 }
 
 type UserResponse struct {
+	IsAdmin     bool   `json:"is_admin"`
 	ID          string `json:"id"`
 	Username    string `json:"username"`
 	DisplayName string `json:"display_name"`
