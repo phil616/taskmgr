@@ -86,8 +86,8 @@ func ValidateMCPSettings(s *model.MCPSettings) error {
 		return fmt.Errorf("MCP 路径须为 /mcp 或 /agents/mcp 形式，不含查询、转义或特殊字符")
 	}
 	first := strings.Split(strings.TrimPrefix(s.Path, "/"), "/")[0]
-	if first == "api" || first == "oauth" || first == "health" {
-		return fmt.Errorf("MCP 路径不能占用 api、oauth 或 health 路由")
+	if first == "api" || first == "oauth" || first == "health" || first == "assets" {
+		return fmt.Errorf("MCP 路径不能占用 api、oauth、health 或前端 assets 路由")
 	}
 	if s.ServerName == "" || len(s.ServerName) > 100 || strings.ContainsAny(s.ServerName, "\r\n\t") {
 		return fmt.Errorf("服务名称须为 1–100 字节且不含控制字符")

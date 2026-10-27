@@ -1,7 +1,8 @@
 """
 ops-timer MCP Token 消耗测算工具
 =====================================
-基于 mcp.go 中定义的工具 schema，静态估算 AI 客户端在一次 MCP 会话中的 token 开销。
+静态模式使用历史工具 schema 快照；当前服务的工具数量、策略和完整 schema 请通过 --live 测量。
+正式注册表位于后端 mcp_tools.go，并有自动生成的 docs/mcp-tools.md。
 
 测算维度：
 1. tools/list 完整 JSON-RPC 响应（与 Gin 紧凑 JSON 一致，贴近真实服务端）
@@ -49,7 +50,7 @@ def make_token_counter(encoding_name: str) -> tuple[Callable[[str], int], str]:
 
 
 # ---------------------------------------------------------------------------
-# MCP 工具定义（从 mcp.go allTools() 提取）
+# MCP 工具定义（历史静态快照，当前注册表请用 --live）
 # ---------------------------------------------------------------------------
 
 TOOLS: list[dict] = [
@@ -315,8 +316,8 @@ def build_tools_inner_only_compact(tools: list[dict]) -> str:
 def handshake_small_messages_tokens(ct: Callable[[str], int]) -> int:
     """典型 MCP 握手链中除 tools/list 大响应外的小 JSON-RPC 消息。"""
     msgs = [
-        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"client","version":"1"}}}',
-        '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"ops-timer-mcp","version":"2.0.0"}}}',
+        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"client","version":"1"}}}',
+        '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"ops-timer-mcp","version":"2.0.0"}}}',
         '{"jsonrpc":"2.0","method":"notifications/initialized"}',
         '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
         '{"jsonrpc":"2.0","id":3,"method":"ping"}',
@@ -339,7 +340,12 @@ def fetch_tools_list_live(
         url,
         data=body,
         method="POST",
-        headers={"Content-Type": "application/json", "X-API-Token": token},
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "MCP-Protocol-Version": "2025-11-25",
+            "X-API-Token": token,
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:

@@ -96,6 +96,7 @@ func TestOAuthFlow(t *testing.T) {
 	request := func(method, path, body, contentType, token string, cookie *http.Cookie, status int) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(method, "https://tasks.example"+path, strings.NewReader(body))
+		req.Header.Set("Accept", "application/json, text/event-stream")
 		if contentType != "" {
 			req.Header.Set("Content-Type", contentType)
 		}
@@ -217,7 +218,7 @@ func TestOAuthFlow(t *testing.T) {
 		t.Fatal("tool list did not respect scopes")
 	}
 	call := request("POST", "/mcp", `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"todo_list","arguments":{}}}`, "application/json", tokens.AccessToken, nil, 200)
-	if !strings.Contains(call.Body.String(), `"isError":false`) {
+	if strings.Contains(call.Body.String(), `"isError":true`) || !strings.Contains(call.Body.String(), `"ok":true`) {
 		t.Fatal(call.Body.String())
 	}
 	var user model.User
@@ -225,8 +226,8 @@ func TestOAuthFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	attack, _ := json.Marshal(gin.H{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": gin.H{"name": "backend_request", "arguments": gin.H{"method": "GET", "path": "/api/v1/auth/token", "headers": gin.H{"X-API-Token": user.APIToken}}}})
-	blocked := request("POST", "/mcp", string(attack), "application/json", tokens.AccessToken, nil, 403)
-	if !strings.Contains(blocked.Body.String(), "insufficient_scope") || strings.Contains(blocked.Body.String(), user.APIToken) {
+	blocked := request("POST", "/mcp", string(attack), "application/json", tokens.AccessToken, nil, 200)
+	if !strings.Contains(blocked.Body.String(), "error") || strings.Contains(blocked.Body.String(), user.APIToken) {
 		t.Fatal("proxy bypass")
 	}
 	var stored model.OAuthToken
@@ -346,7 +347,7 @@ func TestOAuthFlow(t *testing.T) {
 	}
 	// Exercise production route registration, including discovery aliases.
 	production := router.NewRouter(&router.RouterConfig{AuthHandler: handler.NewAuthHandler(authSvc, nil), OAuthHandler: oh, OAuthService: svc, AuthService: authSvc, JWTManager: jwt, Logger: zap.NewNop(), MCPHandler: mcp}).Setup()
-	for _, path := range []string{"/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource/mcp", "/mcp/config", "/mcp"} {
+	for _, path := range []string{"/.well-known/oauth-authorization-server", "/.well-known/oauth-protected-resource/mcp", "/mcp/config", "/mcp/info"} {
 		w := httptest.NewRecorder()
 		production.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
 		if w.Code != 200 {

@@ -1,0 +1,57 @@
+name: MCP Regression
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-regression-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protocol-and-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: mcp-ci-only
+          POSTGRES_DB: taskmgr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d taskmgr_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      TASK_MANAGER_TEST_DATABASE_DSN: postgres://postgres:mcp-ci-only@127.0.0.1:5432/taskmgr_test?sslmode=disable
+      TASK_MANAGER_TEST_NGINX_IMAGE: nginx:alpine
+    defaults:
+      run:
+        working-directory: ops-timer-backend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: ops-timer-backend/go.mod
+          cache-dependency-path: ops-timer-backend/go.sum
+      - name: Prepare HTTPS proxy image
+        run: docker pull "$TASK_MANAGER_TEST_NGINX_IMAGE"
+      - name: Protocol, PostgreSQL, SDK client and Nginx HTTPS regression
+        run: go test -race ./... -count=1 -timeout=5m
+      - name: Static checks
+        run: go vet ./...
+      - name: Verify generated tool documentation
+        run: |
+          go generate ./internal/api/handler
+          git diff --exit-code -- docs/mcp-tools.md

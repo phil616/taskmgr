@@ -11,7 +11,7 @@
 - **通知提醒**：后台定时扫描，自动生成到期/超期提醒
 - **认证方式**：浏览器会话、JWT、API Token，以及面向外部智能体的 OAuth 授权码 + PKCE
 - **RESTful API**：完整的 REST API，支持脚本和第三方集成
-- **MCP 接入**：支持 AI 智能体通过 MCP + API Token 调用全部后端能力
+- **MCP 接入**：支持 AI 智能体通过标准 Streamable HTTP 与 API Token/OAuth 调用获授权的工具
 
 ## 技术栈
 
@@ -163,7 +163,9 @@ curl http://localhost:8080/api/v1/units \
 
 ## MCP 接入（AI 智能体）
 
-管理员可在「系统设置 → MCP 与 OAuth 管理」设置认证方式并复制客户端配置。后端内置 MCP 服务器（默认 `POST /mcp`），提供 **80 个专用工具**，覆盖全部后端功能。智能体通过一个 MCP 配置即可完全操控所有数据。
+管理员可在「系统设置 → MCP 与 OAuth 管理」设置认证方式并复制客户端配置。后端通过官方 Go SDK 提供无状态 Streamable HTTP（默认 `POST /mcp`），支持 `2025-11-25`、`2025-06-18`、`2025-03-26`。注册工具共 80 个，默认启用 74 个，实际列表受管理员策略及 OAuth scope 限制。通用代理、凭据操作和密钥明文读取默认关闭。详见 [工具注册表](ops-timer-backend/docs/mcp-tools.md) 和 [协议、改造与排障说明](ops-timer-backend/docs/mcp-reliability.md)。
+
+说明页在 `/mcp/info`，配置 JSON 在 `/mcp/config`；协议入口的 GET/DELETE 在认证后返回 405。后台修改路径后，相应子路径随之变化，客户端须更新地址。
 
 ### 一键获取配置
 
@@ -190,7 +192,7 @@ curl http://localhost:8080/mcp/config
 
 将 `mcpServers` 部分粘贴到你的 MCP 客户端配置中（Cursor Settings → MCP、Claude Desktop `mcp_config.json` 等），替换 `<your-api-token>` 为你的真实 Token 即可。
 
-### 可用工具分类（80 个）
+### 注册工具分类（实际可用列表以 tools/list 为准）
 
 | 模块 | 工具数 | 说明 |
 |------|--------|------|
@@ -206,14 +208,18 @@ curl http://localhost:8080/mcp/config
 | 收支记录 | 5 | 完整 CRUD + 详情 |
 | 密钥管理 | 7 | 完整 CRUD + 明文读取 + 审计日志 |
 | 预算统计 | 1 | 汇总（按钱包/日期范围） |
-| 通用代理 | 1 | `backend_request`（任意 HTTP 调用兜底） |
+| 通用代理 | 1 | `backend_request`（默认关闭，受路径和权限限制） |
 
 ### 调用示例
+
+标准客户端先完成 initialize 和 notifications/initialized，再发现和调用工具。下列 curl 展示无状态业务调用的必需请求头。
 
 ```bash
 # 使用专用工具创建待办
 curl -X POST http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "MCP-Protocol-Version: 2025-11-25" \
   -H "X-API-Token: <your_api_token>" \
   -d '{
     "jsonrpc": "2.0",
@@ -229,9 +235,11 @@ curl -X POST http://localhost:8080/mcp \
     }
   }'
 
-# 使用通用工具（兜底）
+# 使用通用工具（须管理员显式启用，仅 API Token 可用）
 curl -X POST http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "MCP-Protocol-Version: 2025-11-25" \
   -H "X-API-Token: <your_api_token>" \
   -d '{
     "jsonrpc": "2.0",

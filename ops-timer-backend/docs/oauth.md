@@ -30,7 +30,7 @@ issuer 必须为后端的外部 HTTPS 来源，不带路径；本地开发允许
 }
 ```
 
-未认证调用返回 `401`，`WWW-Authenticate` 指向资源元数据，客户端发现授权服务器后注册、打开浏览器并完成授权。`GET /mcp/config` 在启用 OAuth 后返回上述配置及 OAuth 元数据。首次默认只请求 `data:read`；需要创建或修改数据时，客户端应在授权请求中显式包含 `data:write`。MCP 工具列表按权限过滤，越权调用返回 `403 insufficient_scope` 和对应挑战头。通用 `backend_request` 也执行相同检查，不能用附加请求头替换授权身份。
+未认证调用返回 `401`，`WWW-Authenticate` 指向资源元数据，客户端发现授权服务器后注册、打开浏览器并完成授权。`GET /mcp/config` 在启用 OAuth 后返回上述配置及 OAuth 元数据。首次默认只请求 `data:read`；需要创建或修改数据时，客户端应在授权请求中显式包含 `data:write`。MCP 工具列表按权限过滤；调用未开放的工具会返回 SDK 的协议错误，已执行工具的业务/权限失败以 isError=true 表达。REST 的越权请求返回 `403 insufficient_scope` 和对应挑战头。OAuth 客户端不开放通用 `backend_request`；不能用附加请求头替换授权身份。协议和敏感工具策略见 [MCP 改造说明](mcp-reliability.md)。
 
 ## 权限
 
@@ -95,6 +95,8 @@ curl https://tasks.example.com/api/v1/todos \
 curl https://tasks.example.com/mcp \
   -H 'Authorization: Bearer ACCESS_TOKEN' \
   -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -H 'MCP-Protocol-Version: 2025-11-25' \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"todo_list","arguments":{}}}'
 ```
 

@@ -73,6 +73,7 @@ func TestMCPAdminSettingsLiveConfiguration(t *testing.T) {
 		t.Helper()
 		req := httptest.NewRequest(method, "https://tasks.example"+path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
 		if strings.HasPrefix(credential, "api:") {
 			req.Header.Set("X-API-Token", strings.TrimPrefix(credential, "api:"))
 		} else if credential != "" {
@@ -114,7 +115,7 @@ func TestMCPAdminSettingsLiveConfiguration(t *testing.T) {
 			t.Fatalf("browser admin status: %d want %d", w.Code, want)
 		}
 	}
-	initialize := `{"jsonrpc":"2.0","id":1,"method":"initialize"}`
+	initialize := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}`
 	call("POST", "/mcp", initialize, "api:"+admin.APIToken, 200)
 	call("POST", "/mcp", initialize, admin.APIToken, 200)
 	call("POST", "/mcp", initialize, adminJWT, 401)
@@ -122,10 +123,18 @@ func TestMCPAdminSettingsLiveConfiguration(t *testing.T) {
 	// to read or alter administrator settings.
 	proxy := `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"backend_request","arguments":{"method":"GET","path":"/api/v1/admin/mcp-settings"}}}`
 	blocked := call("POST", "/mcp", proxy, "api:"+admin.APIToken, 200)
-	if !strings.Contains(blocked.Body.String(), `"isError":true`) {
+	if !strings.Contains(blocked.Body.String(), `"error"`) {
 		t.Fatal("MCP proxy accessed admin settings", blocked.Body.String())
 	}
 	current, _ := settings.Get(ctx)
+	current.GenericToolsEnabled = true
+	if _, err := settings.Save(ctx, *current, admin.ID); err != nil {
+		t.Fatal(err)
+	}
+	enabledProxy := call("POST", "/mcp", proxy, "api:"+admin.APIToken, 200)
+	if !strings.Contains(enabledProxy.Body.String(), `"isError":true`) || !strings.Contains(enabledProxy.Body.String(), `"status":403`) {
+		t.Fatal("enabled proxy bypassed REST administrator policy", enabledProxy.Body.String())
+	}
 	current.Path, current.ExternalURL, current.ServerName = "/agents/mcp", "https://tasks.example", "new-name"
 	save := func() {
 		t.Helper()
@@ -211,4 +220,6 @@ func TestMCPAdminSettingsLiveConfiguration(t *testing.T) {
 	}
 	call("POST", current.Path, initialize, "api:"+admin.APIToken, 503)
 	call("GET", "/health", "", "", 200)
+	call("GET", "/api/v1/auth/profile", "", "api:"+admin.APIToken, 200)
+	call("GET", adminPath, "", adminJWT, 500)
 }

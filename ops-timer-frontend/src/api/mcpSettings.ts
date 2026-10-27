@@ -7,6 +7,8 @@ export interface MCPSettings {
   server_name: string
   server_version: string
   timeout_seconds: number
+  generic_tools_enabled: boolean
+  sensitive_tools_enabled: boolean
   api_token_enabled: boolean
   oauth_enabled: boolean
   oauth_issuer: string

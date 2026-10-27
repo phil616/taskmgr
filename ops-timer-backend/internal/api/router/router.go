@@ -94,15 +94,15 @@ func (r *Router) Setup() *gin.Engine {
 	engine.Use(middleware.CORSMiddleware(r.corsOrigins))
 	engine.Use(middleware.LoggerMiddleware(r.logger))
 	if r.mcpSettings != nil {
-		engine.Use(r.integrationMiddleware())
+		engine.NoRoute(r.integrationMiddleware())
 	}
 
 	engine.GET("/health", func(c *gin.Context) {
 		response.Success(c, gin.H{"status": "ok"})
 	})
 	if r.mcpHandler != nil && r.mcpSettings == nil {
-		engine.POST(r.mcpPath, r.mcpHandler.Handle)
-		engine.GET(r.mcpPath, r.mcpHandler.GetInfo)
+		engine.Any(r.mcpPath, r.mcpHandler.Handle)
+		engine.GET(r.mcpPath+"/info", r.mcpHandler.GetInfo)
 		engine.GET(r.mcpPath+"/config", r.mcpHandler.GetConfig)
 	}
 	if r.mcpSettings != nil {
@@ -134,6 +134,9 @@ func (r *Router) Setup() *gin.Engine {
 
 	// Protected routes
 	protected := api.Group("")
+	if r.mcpSettings != nil {
+		protected.Use(r.oauthCredentialsMiddleware())
+	}
 	protected.Use(middleware.AuthMiddleware(r.jwtManager, r.authService, r.corsOrigins, r.oauthService))
 	if r.mcpSettings != nil {
 		settingsHandler := handler.NewMCPSettingsHandler(r.mcpSettings)
@@ -273,6 +276,9 @@ func (r *Router) Setup() *gin.Engine {
 	protected.GET("/backup/export", r.backupHandler.Export)
 	protected.POST("/backup/import", r.backupHandler.Import)
 
+	if r.mcpHandler != nil {
+		r.mcpHandler.UseBackend(engine, r.corsOrigins)
+	}
 	r.engine = engine
 	return engine
 }

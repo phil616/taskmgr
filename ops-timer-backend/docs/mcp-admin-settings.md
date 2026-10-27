@@ -2,11 +2,11 @@
 
 ## 认证流程
 
-MCP 通过 HTTP JSON-RPC 接收请求，默认路径 `/mcp`。认证在解析和执行工具之前完成：
+MCP 通过官方 Go SDK 的无状态 Streamable HTTP 接收请求，默认路径 `/mcp`。认证在解析和执行工具之前完成：
 
 1. `Authorization: Bearer ot_at_...` 使用 OAuth Access Token。后端核对数据库中的令牌摘要、有效期、授权撤销状态、resource 绑定及用户密码指纹，再按 scope 筛选工具、检查调用权限。OAuth 令牌不接受降级为 API Token。
 2. 启用 API Token 接入时，`X-API-Token` 或 `Authorization: Bearer <api_token>` 核对用户表中的个人 API Token。此方式拥有账号的完整业务权限。
-3. 网站登录 JWT 与浏览器 Cookie 不用于 MCP 入口认证。它们用于网站和管理 API；MCP 的内部 HTTP 代理保留传入身份，不能替换为其他认证头。
+3. 网站登录 JWT 与浏览器 Cookie 不用于 MCP 入口认证。它们用于网站和管理 API；MCP 的进程内 REST 适配器保留传入身份，不能替换为其他认证头。
 
 OAuth 使用授权码 + PKCE S256、浏览器确认、15 分钟 Access Token、固定 30 天授权家族、刷新轮换和重放撤销。数据库仅存 OAuth 凭据摘要。具体流程、scope 及撤销接口见 [oauth.md](oauth.md)。自动发现及 resource 绑定继续遵循 [MCP HTTP 授权规范](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)。
 
@@ -18,14 +18,15 @@ OAuth 使用授权码 + PKCE S256、浏览器确认、15 分钟 Access Token、�
 |---|---|
 | MCP 开关、接入路径 | MCP 说明页、配置 JSON 和 JSON-RPC 入口 |
 | 外部服务地址 | API Token 客户端配置展示；须为不带路径的 HTTPS 来源，本机开发可使用 HTTP |
-| 服务名称、版本、请求超时 | 客户端配置、initialize 响应和后端代理请求 |
+| 服务名称、版本、请求超时 | 客户端配置、initialize 响应和进程内业务调用 |
+| 通用代理、敏感工具开关 | 默认关闭；列表和调用均受限制，OAuth 不开放通用代理 |
 | API Token 接入开关 | 仅控制 MCP；REST API 的原有 Token 认证保持可用 |
 | OAuth 开关、issuer | OAuth 发现、注册、授权、令牌端点，以及 MCP/REST 的 OAuth 令牌认证 |
 | 动态注册开关 | 公共 `/oauth/register` 端点及发现文档；关闭时可通过已登录账户预注册 |
 
-配置保存到 PostgreSQL 的 `mcp_settings` 单例记录，记录修改者和修改时间。每个请求读取一次数据库快照，不修改共享 OAuth 对象，多副本使用同一数据库即可在后续请求读取新设置。读取失败返回 503，不会回退到旧环境配置或放开认证。
+配置保存到 PostgreSQL 的 `mcp_settings` 单例记录，记录修改者和修改时间。仅动态 MCP 路由、OAuth 端点和实际携带 OAuth 凭据的 REST 请求读取数据库快照，不修改共享 OAuth 对象，多副本使用同一数据库即可在后续请求读取新设置。相关路由读取失败返回 503，不会回退到旧环境配置或放开认证。普通 REST 的 JWT、浏览器 Cookie 和 API Token 认证不读取 MCP 设置表。
 
-启用 MCP 时必须保留 API Token 或 OAuth 中至少一种认证方式。关闭 MCP 后，管理入口仍可使用。关闭 OAuth 后，已签发的 OAuth 凭据立即停止认证；重新启用相同 issuer/path 时尚未过期且未撤销的授权可继续使用。更改 issuer/path 后，旧 resource 的授权被拒绝；客户端需要重新授权。更改接入路径还需同步反向代理规则和客户端 URL。
+启用 MCP 时必须保留 API Token 或 OAuth 中至少一种认证方式。关闭 MCP 后，管理入口仍可使用。关闭 OAuth 后，已签发的 OAuth 凭据立即停止认证；重新启用相同 issuer/path 时尚未过期且未撤销的授权可继续使用。更改 issuer/path 后，旧 resource 的授权被拒绝；客户端需要重新授权。仓库的 Nginx 配置将不存在的静态路径先转发后端，支持动态接入路径；其他外部代理仍须确认转发规则，客户端 URL 需同步更新。
 
 管理员可预览并复制已保存配置，同时启用两种认证时可选择生成 OAuth 或 API Token 配置。API Token 配置只包含占位符，不会嵌入真实个人凭据。
 
@@ -44,6 +45,8 @@ OAuth 使用授权码 + PKCE S256、浏览器确认、15 分钟 Access Token、�
   "server_version": "2.0.0",
   "timeout_seconds": 30,
   "api_token_enabled": true,
+  "generic_tools_enabled": false,
+  "sensitive_tools_enabled": false,
   "oauth_enabled": true,
   "oauth_issuer": "https://tasks.example.com",
   "oauth_dynamic_registration": true
@@ -67,3 +70,5 @@ go vet ./...
 ```
 
 集成测试创建独立 PostgreSQL schema，覆盖旧账户管理员迁移、配置持久化、环境值不覆盖、普通账户/集成凭据越权阻断、浏览器会话校验、MCP 动态路径和服务信息、API Token 开关、OAuth 注册/发现/认证关闭，以及数据库读取失败时拒绝请求。
+
+协议版本、完整工具表、默认关闭策略、HTTPS 回归和字节级排障见 [MCP 可靠性改造说明](mcp-reliability.md)。升级后说明页路径为 `<MCP路径>/info`，原 MCP 路径的 GET 请求不再返回 HTML。

@@ -50,13 +50,15 @@
 
 ### 概览
 
-MCP 服务器 v2.0 提供 **80 个专用工具**，100% 覆盖后端所有 API，智能体通过一个 JSON 配置即可获得全部能力。
+MCP 使用官方 Go SDK 的无状态 Streamable HTTP，支持 `2025-11-25`、`2025-06-18`、`2025-03-26`。注册表包含 80 个工具（默认启用 74 个）；实际工具列表由管理员策略和 OAuth scope 决定。完整清单与默认策略见自动校验的 [工具注册表](mcp-tools.md)，协议、迁移及故障排查见 [MCP 可靠性改造说明](mcp-reliability.md)。
 
 ### 端点
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `POST` | `/mcp` | MCP JSON-RPC 入口（`initialize`、`ping`、`tools/list`、`tools/call`、`notifications/initialized`） |
+| `POST` | `/mcp` | Streamable HTTP JSON-RPC；请求须声明 JSON Content-Type 和 JSON/SSE Accept |
+| `GET` / `DELETE` | `/mcp` | 认证后返回 405；当前不提供 GET SSE 或持久会话 |
+| `GET` | `/mcp/info` | 人类可读的说明页 |
 | `GET` | `/mcp/config` | 返回可直接粘贴到 MCP 客户端的 JSON 配置片段 |
 
 ### 认证
@@ -64,7 +66,7 @@ MCP 服务器 v2.0 提供 **80 个专用工具**，100% 覆盖后端所有 API�
 - `X-API-Token: <api_token>`（推荐）
 - 或 `Authorization: Bearer <api_token>`
 
-### 工具清单（80 个）
+### 工具模块（实际可用列表以 tools/list 为准）
 
 | 模块 | 工具 |
 |------|------|
@@ -90,7 +92,7 @@ MCP 服务器 v2.0 提供 **80 个专用工具**，100% 覆盖后端所有 API�
 curl http://localhost:8080/mcp/config
 
 # 2. 将返回的 mcpServers 粘贴到客户端配置，替换 Token
-# 3. 智能体即可通过 62 个工具操控全部后端数据
+# 3. 智能体通过 tools/list 获取当前身份可用的工具
 ```
 
 ## 与配置的关系

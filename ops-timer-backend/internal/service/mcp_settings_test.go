@@ -13,6 +13,7 @@ func TestMCPSettingsValidation(t *testing.T) {
 	}{
 		{"no auth", func(s *model.MCPSettings) { s.APITokenEnabled = false }},
 		{"missing issuer", func(s *model.MCPSettings) { s.OAuthEnabled = true }},
+		{"static asset collision", func(s *model.MCPSettings) { s.Path = "/assets" }},
 		{"api collision", func(s *model.MCPSettings) { s.Path = "/api/v1" }},
 		{"oauth collision", func(s *model.MCPSettings) { s.Path = "/oauth/authorize" }},
 		{"health collision", func(s *model.MCPSettings) { s.Path = "/health/config" }},

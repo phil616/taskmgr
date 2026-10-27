@@ -11,6 +11,8 @@ type MCPSettings struct {
 	ServerName               string    `json:"server_name"`
 	ServerVersion            string    `json:"server_version"`
 	TimeoutSeconds           int       `json:"timeout_seconds"`
+	GenericToolsEnabled      bool      `json:"generic_tools_enabled"`
+	SensitiveToolsEnabled    bool      `json:"sensitive_tools_enabled"`
 	APITokenEnabled          bool      `json:"api_token_enabled"`
 	OAuthEnabled             bool      `json:"oauth_enabled"`
 	OAuthIssuer              string    `json:"oauth_issuer"`

@@ -5,7 +5,7 @@ async function mockSettings(page: Page, isAdmin = true) {
   let saved: MCPSettings = {
     enabled: true, path: '/mcp', external_url: 'https://tasks.example.com',
     server_name: 'ops-timer-mcp', server_version: '2.0.0', timeout_seconds: 30,
-    api_token_enabled: true, oauth_enabled: false, oauth_issuer: '', oauth_dynamic_registration: true,
+    generic_tools_enabled: false, sensitive_tools_enabled: false, api_token_enabled: true, oauth_enabled: false, oauth_issuer: '', oauth_dynamic_registration: true,
   }
   let requests = 0
   let failSave = false
@@ -26,7 +26,7 @@ async function mockSettings(page: Page, isAdmin = true) {
     }
     return route.fulfill({ json: { code: 0, message: 'success', data } })
   })
-  return { requests: () => requests, failSave: () => { failSave = true } }
+  return { settings: () => saved, requests: () => requests, failSave: () => { failSave = true } }
 }
 
 test('administrator saves MCP settings, copies saved config, and sees failed saves without losing edits', async ({ page, context }) => {
@@ -34,14 +34,20 @@ test('administrator saves MCP settings, copies saved config, and sees failed sav
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.goto('/settings')
   await expect(page.getByText('MCP 与 OAuth 管理', { exact: true })).toBeVisible()
+  await expect(page.getByLabel("启用通用 API 代理工具", { exact: true })).not.toBeChecked()
+  await expect(page.getByLabel("允许凭据操作和密钥明文读取工具", { exact: true })).not.toBeChecked()
   const config = page.getByLabel('MCP JSON 配置', { exact: true })
   await expect(config).toHaveValue(/https:\/\/tasks.example.com\/mcp/)
   await page.getByLabel('接入路径', { exact: true }).fill('/agents/mcp')
   await page.getByLabel('服务名称', { exact: true }).fill('agents')
+  await page.getByLabel("启用通用 API 代理工具", { exact: true }).check()
+  await page.getByLabel("允许凭据操作和密钥明文读取工具", { exact: true }).check()
   // Unsaved edits must not be presented as the currently active configuration.
   await expect(config).toHaveValue(/https:\/\/tasks.example.com\/mcp/)
   await page.getByRole('button', { name: '保存 MCP 与认证设置' }).click()
   await expect(page.getByText('MCP 与认证设置已保存并生效')).toBeVisible()
+  expect(state.settings().generic_tools_enabled).toBe(true)
+  expect(state.settings().sensitive_tools_enabled).toBe(true)
   await expect(config).toHaveValue(/https:\/\/tasks.example.com\/agents\/mcp/)
   await page.getByRole('button', { name: '复制配置', exact: true }).click()
   await expect(page.getByText('配置已复制', { exact: true })).toBeVisible()

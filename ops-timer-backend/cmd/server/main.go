@@ -120,7 +120,6 @@ func main() {
 	backupHandler := handler.NewBackupHandler(backupService)
 	mcpHandler := handler.NewMCPHandler(handler.MCPHandlerConfig{
 		AuthService: authService,
-		BaseURL:     fmt.Sprintf("http://127.0.0.1:%d", cfg.Server.Port),
 	})
 
 	// Router
