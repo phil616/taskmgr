@@ -97,6 +97,10 @@ func TestOAuthFlow(t *testing.T) {
 		t.Helper()
 		req := httptest.NewRequest(method, "https://tasks.example"+path, strings.NewReader(body))
 		req.Header.Set("Accept", "application/json, text/event-stream")
+		if method == http.MethodPost && path == "/oauth/authorize" {
+			req.Header.Set("Origin", "https://tasks.example")
+			req.Header.Set("Sec-Fetch-Site", "same-origin")
+		}
 		if contentType != "" {
 			req.Header.Set("Content-Type", contentType)
 		}
@@ -138,6 +142,9 @@ func TestOAuthFlow(t *testing.T) {
 		t.Helper()
 		q := url.Values{"client_id": {clientID}, "redirect_uri": {redirect}, "response_type": {"code"}, "scope": {scope}, "state": {"csrf-state"}, "code_challenge": {challenge}, "code_challenge_method": {"S256"}, "resource": {svc.Resource}}
 		page := request("GET", "/oauth/authorize?"+q.Encode(), "", "", "", nil, 200)
+		if page.Header().Get("Referrer-Policy") != "same-origin" {
+			t.Fatal("consent page would cause browsers to POST Origin: null")
+		}
 		if strings.Contains(page.Body.String(), "<script>") || !strings.Contains(page.Body.String(), "&lt;script&gt;") {
 			t.Fatal("unescaped client name")
 		}
@@ -179,14 +186,21 @@ func TestOAuthFlow(t *testing.T) {
 	request("POST", "/oauth/authorize", form, "application/x-www-form-urlencoded", "", nil, 400)
 	request("POST", "/oauth/authorize", strings.Replace(form, "request=", "request=bad", 1), "application/x-www-form-urlencoded", "", cookie, 400)
 	deny, _ := url.ParseQuery(form)
-	originRequest := httptest.NewRequest("POST", "https://tasks.example/oauth/authorize", strings.NewReader(form))
-	originRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	originRequest.Header.Set("Origin", "https://evil.example")
-	originRequest.AddCookie(cookie)
-	originResponse := httptest.NewRecorder()
-	r.ServeHTTP(originResponse, originRequest)
-	if originResponse.Code != 403 {
-		t.Fatal("accepted untrusted form origin")
+	for _, headers := range []struct{ origin, fetchSite string }{
+		{"https://evil.example", "cross-site"},
+		{"null", "same-origin"},
+		{"https://tasks.example", "cross-site"},
+	} {
+		originRequest := httptest.NewRequest("POST", "https://tasks.example/oauth/authorize", strings.NewReader(form))
+		originRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		originRequest.Header.Set("Origin", headers.origin)
+		originRequest.Header.Set("Sec-Fetch-Site", headers.fetchSite)
+		originRequest.AddCookie(cookie)
+		originResponse := httptest.NewRecorder()
+		r.ServeHTTP(originResponse, originRequest)
+		if originResponse.Code != 403 {
+			t.Fatalf("accepted untrusted form origin: %+v", headers)
+		}
 	}
 	deny.Set("decision", "deny")
 	denied := request("POST", "/oauth/authorize", deny.Encode(), "application/x-www-form-urlencoded", "", cookie, 303)

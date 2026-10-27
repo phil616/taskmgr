@@ -161,6 +161,10 @@ func (h *OAuthHandler) renderConsent(c *gin.Context, a *service.OAuthAuthorizati
 	}
 	c.Header("Content-Security-Policy", "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
 	c.Header("X-Frame-Options", "DENY")
+	// no-referrer makes browsers send Origin: null on native form POSTs,
+	// which our consent endpoint correctly rejects. Preserve same-origin form
+	// identity while withholding the authorization URL from external origins.
+	c.Header("Referrer-Policy", "same-origin")
 	c.Data(status, "text/html; charset=utf-8", body.Bytes())
 }
 
