@@ -117,6 +117,7 @@ func main() {
 	scheduleHandler := handler.NewScheduleHandler(scheduleService)
 	budgetHandler := handler.NewBudgetHandler(budgetService)
 	secretHandler := handler.NewSecretHandler(secretService)
+	certificateHandler := handler.NewCertificateHandler(service.NewCertificateService(db))
 	backupHandler := handler.NewBackupHandler(backupService)
 	mcpHandler := handler.NewMCPHandler(handler.MCPHandlerConfig{
 		AuthService: authService,
@@ -124,22 +125,23 @@ func main() {
 
 	// Router
 	r := router.NewRouter(&router.RouterConfig{
-		AuthHandler:     authHandler,
-		UnitHandler:     unitHandler,
-		ProjectHandler:  projectHandler,
-		TodoHandler:     todoHandler,
-		NoteHandler:     noteHandler,
-		NotifHandler:    notifHandler,
-		ScheduleHandler: scheduleHandler,
-		BudgetHandler:   budgetHandler,
-		SecretHandler:   secretHandler,
-		BackupHandler:   backupHandler,
-		MCPHandler:      mcpHandler,
-		JWTManager:      jwtManager,
-		AuthService:     authService,
-		Logger:          zapLogger,
-		CorsOrigins:     cfg.Server.CorsOrigins,
-		MCPSettings:     mcpSettings,
+		AuthHandler:        authHandler,
+		UnitHandler:        unitHandler,
+		ProjectHandler:     projectHandler,
+		TodoHandler:        todoHandler,
+		NoteHandler:        noteHandler,
+		NotifHandler:       notifHandler,
+		ScheduleHandler:    scheduleHandler,
+		BudgetHandler:      budgetHandler,
+		SecretHandler:      secretHandler,
+		CertificateHandler: certificateHandler,
+		BackupHandler:      backupHandler,
+		MCPHandler:         mcpHandler,
+		JWTManager:         jwtManager,
+		AuthService:        authService,
+		Logger:             zapLogger,
+		CorsOrigins:        cfg.Server.CorsOrigins,
+		MCPSettings:        mcpSettings,
 	})
 
 	engine := r.Setup()
@@ -239,6 +241,9 @@ func autoMigrate(db *gorm.DB) {
 		&model.LoginAttempt{},
 		&model.Secret{},
 		&model.SecretAuditLog{},
+		&model.Attachment{},
+		&model.Certificate{},
+		&model.AttachmentLink{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)

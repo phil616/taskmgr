@@ -71,6 +71,8 @@ tags:
     description: 收支记录
   - name: BudgetStats
     description: 预算统计汇总
+  - name: Certificates
+    description: 公钥证书、附件与证书到期倒计时
   - name: Secrets
     description: 密钥管理（明文存储，含审计日志）
   - name: SecretAuditLogs
@@ -3145,6 +3147,249 @@ paths:
                       protocol_version:
                         type: string
 
+  /api/v1/attachments:
+    get:
+      tags:
+      - Certificates
+      summary: 证书附件分页列表（仅元数据）
+      operationId: attachmentsList
+      security:
+      - BrowserSession: []
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - name: owner_type
+        in: query
+        schema:
+          type: string
+          enum:
+          - project
+          - unit
+          - todo
+          - note
+          - schedule
+      - name: owner_id
+        in: query
+        schema:
+          type: string
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum:
+          - x509
+          - gpg
+      - name: q
+        in: query
+        schema:
+          type: string
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/pageSize'
+      description: owner_type 和 owner_id 必须同时提供；q 搜索文件名、CN、主体和指纹。page_size 最大 100。
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/EnvelopeSuccess'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/CertificateAttachmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+      - Certificates
+      summary: 上传 X.509 / GPG 公钥证书文件
+      operationId: attachmentsUpload
+      security:
+      - BrowserSession: []
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      description: 最大 4 MiB；支持 PEM/DER X.509 及 ASCII armor/二进制 GPG。拒绝私钥、私钥子包和公私钥混合文件。保留原始字节，逐张提取证书元数据。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+              - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                owner_type:
+                  type: string
+                  enum:
+                  - project
+                  - unit
+                  - todo
+                  - note
+                  - schedule
+                owner_id:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/EnvelopeSuccess'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/CertificateAttachmentResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/attachments/{id}/download:
+    get:
+      tags:
+      - Certificates
+      summary: 下载原始证书文件
+      operationId: attachmentsDownload
+      security:
+      - BrowserSession: []
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/idPath'
+      responses:
+        '200':
+          description: Original public certificate file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/attachments/{id}:
+    delete:
+      tags:
+      - Certificates
+      summary: 删除证书附件、元数据及全部关联
+      operationId: attachmentsDelete
+      security:
+      - BrowserSession: []
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      description: 保留已创建的倒计时。
+      parameters:
+      - $ref: '#/components/parameters/idPath'
+      responses:
+        '204':
+          description: Deleted
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/attachments/{id}/links:
+    post:
+      tags:
+      - Certificates
+      summary: 关联已有证书附件
+      operationId: attachmentsLink
+      security:
+      - BrowserSession: []
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/idPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachmentOwner'
+      responses:
+        '204':
+          description: Linked (idempotent)
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - Certificates
+      summary: 移除指定附件关联，保留证书文件
+      operationId: attachmentsUnlink
+      security:
+      - BrowserSession: []
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      parameters:
+      - $ref: '#/components/parameters/idPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachmentOwner'
+      responses:
+        '204':
+          description: Unlinked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/certificates/{id}/countdown:
+    post:
+      tags:
+      - Certificates
+      summary: 根据证书到期时间创建或返回已有倒计时
+      operationId: certificatesCountdown
+      security:
+      - BrowserSession: []
+      - BearerAuth: []
+      - ApiKeyAuth: []
+      description: 默认提前 30/7/1 天提醒，并关联原始附件。id 为单张证书 ID。有到期时间的过期证书也可创建；无有效期或已撤销证书返回 400。重复请求返回同一计时单元。
+      parameters:
+      - $ref: '#/components/parameters/idPath'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/EnvelopeSuccess'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/UnitResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     BrowserSession:
@@ -4737,3 +4982,103 @@ components:
         count:
           type: integer
           format: int64
+
+    AttachmentOwner:
+      type: object
+      required:
+      - owner_type
+      - owner_id
+      properties:
+        owner_type:
+          type: string
+          enum:
+          - project
+          - unit
+          - todo
+          - note
+          - schedule
+        owner_id:
+          type: string
+          format: uuid
+    CertificateAttachmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        content_type:
+          type: string
+        size:
+          type: integer
+          format: int64
+        created_at:
+          type: string
+          format: date-time
+        certificates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CertificateResponse'
+    CertificateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        attachment_id:
+          type: string
+        common_name:
+          type: string
+        subject:
+          type: string
+        issuer:
+          type: string
+        serial_number:
+          type: string
+        fingerprint:
+          type: string
+        algorithm:
+          type: string
+        type:
+          type: string
+          enum:
+          - x509
+          - gpg
+        dns_names:
+          type: array
+          nullable: true
+          items:
+            type: string
+        emails:
+          type: array
+          nullable: true
+          items:
+            type: string
+        user_ids:
+          type: array
+          nullable: true
+          items:
+            type: string
+        not_before:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked:
+          type: boolean
+        countdown_unit_id:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+          - valid
+          - expiring
+          - expired
+          - not_yet_valid
+          - revoked
+        remaining_seconds:
+          type: number
+          nullable: true

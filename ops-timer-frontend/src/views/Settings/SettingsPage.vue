@@ -385,6 +385,8 @@ async function handleImportFileChange(event: Event) {
       `钱包 ${stats.wallets || 0}`,
       `交易 ${stats.transactions || 0}`,
       `密钥 ${stats.secrets || 0}`,
+      `证书 ${stats.certificates || 0}`,
+      `附件 ${stats.attachments || 0}`,
     ].join('，')
 
     setDataTransferMessage(`导入完成：策略 ${result.strategy}；${summary}`, true)

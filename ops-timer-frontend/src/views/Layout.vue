@@ -112,6 +112,7 @@ const navItems = [
   { title: '笔记', icon: 'mdi-note-text-outline', to: '/notes' },
   { title: '日程管理', icon: 'mdi-calendar-month', to: '/schedule' },
   { title: '预算管理', icon: 'mdi-wallet', to: '/budget' },
+  { title: '证书管理', icon: 'mdi-certificate-outline', to: '/certificates' },
   { title: '密钥管理', icon: 'mdi-key-variant', to: '/secrets' },
   { title: '通知中心', icon: 'mdi-bell-outline', to: '/notifications' },
 ]
@@ -127,6 +128,7 @@ const titleMap: Record<string, string> = {
   schedule: '日程管理',
   budget: '预算管理',
   secrets: '密钥管理',
+  certificates: '证书管理',
   notifications: '通知中心',
   settings: '系统设置',
 }

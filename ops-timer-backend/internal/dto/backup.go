@@ -8,7 +8,7 @@ import (
 
 const (
 	BackupFormat        = "ops-task-manager-backup"
-	BackupSchemaVersion = 1
+	BackupSchemaVersion = 2
 
 	BackupStrategyMerge     = "merge"
 	BackupStrategyOverwrite = "overwrite"
@@ -28,6 +28,9 @@ type BackupApp struct {
 }
 
 type BackupData struct {
+	Attachments       []model.Attachment       `json:"attachments"`
+	Certificates      []model.Certificate      `json:"certificates"`
+	AttachmentLinks   []model.AttachmentLink   `json:"attachment_links"`
 	Projects          []model.Project          `json:"projects"`
 	Units             []model.Unit             `json:"units"`
 	UnitLogs          []model.UnitLog          `json:"unit_logs"`
@@ -57,6 +60,9 @@ type BackupImportResult struct {
 }
 
 type BackupStats struct {
+	Attachments       int `json:"attachments"`
+	Certificates      int `json:"certificates"`
+	AttachmentLinks   int `json:"attachment_links"`
 	Projects          int `json:"projects"`
 	Units             int `json:"units"`
 	UnitLogs          int `json:"unit_logs"`

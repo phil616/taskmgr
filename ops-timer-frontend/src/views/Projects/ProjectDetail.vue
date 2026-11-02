@@ -37,6 +37,8 @@
       </v-card-text>
     </v-card>
 
+    <CertificatePanel :owner="{ owner_type: 'project', owner_id: project.id }" />
+
     <!-- 项目预算 -->
     <v-card class="rounded-lg mb-4">
       <v-card-title class="d-flex align-center">
@@ -380,6 +382,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import CertificatePanel from '@/components/CertificatePanel.vue'
 import { useRoute } from 'vue-router'
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'

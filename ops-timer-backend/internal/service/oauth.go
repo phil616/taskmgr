@@ -442,7 +442,7 @@ func RequiredOAuthScope(method, path string) string {
 		}
 		return "secrets:write"
 	}
-	if !slices.Contains([]string{"units", "projects", "todos", "todo-groups", "notes", "note-groups", "note-drafts", "notifications", "schedules", "wallets", "budget", "transactions"}, segment) {
+	if !slices.Contains([]string{"units", "projects", "todos", "todo-groups", "notes", "note-groups", "note-drafts", "notifications", "schedules", "wallets", "budget", "transactions", "attachments", "certificates"}, segment) {
 		return ""
 	}
 	if read {

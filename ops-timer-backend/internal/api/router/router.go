@@ -12,48 +12,50 @@ import (
 )
 
 type Router struct {
-	engine          *gin.Engine
-	authHandler     *handler.AuthHandler
-	oauthHandler    *handler.OAuthHandler
-	oauthService    *service.OAuthService
-	unitHandler     *handler.UnitHandler
-	projectHandler  *handler.ProjectHandler
-	todoHandler     *handler.TodoHandler
-	noteHandler     *handler.NoteHandler
-	notifHandler    *handler.NotificationHandler
-	scheduleHandler *handler.ScheduleHandler
-	budgetHandler   *handler.BudgetHandler
-	secretHandler   *handler.SecretHandler
-	backupHandler   *handler.BackupHandler
-	mcpHandler      *handler.MCPHandler
-	jwtManager      *auth.JWTManager
-	authService     *service.AuthService
-	logger          *zap.Logger
-	corsOrigins     []string
-	mcpPath         string
-	mcpSettings     *service.MCPSettingsService
+	engine             *gin.Engine
+	authHandler        *handler.AuthHandler
+	oauthHandler       *handler.OAuthHandler
+	oauthService       *service.OAuthService
+	unitHandler        *handler.UnitHandler
+	projectHandler     *handler.ProjectHandler
+	todoHandler        *handler.TodoHandler
+	noteHandler        *handler.NoteHandler
+	notifHandler       *handler.NotificationHandler
+	scheduleHandler    *handler.ScheduleHandler
+	budgetHandler      *handler.BudgetHandler
+	secretHandler      *handler.SecretHandler
+	certificateHandler *handler.CertificateHandler
+	backupHandler      *handler.BackupHandler
+	mcpHandler         *handler.MCPHandler
+	jwtManager         *auth.JWTManager
+	authService        *service.AuthService
+	logger             *zap.Logger
+	corsOrigins        []string
+	mcpPath            string
+	mcpSettings        *service.MCPSettingsService
 }
 
 type RouterConfig struct {
-	AuthHandler     *handler.AuthHandler
-	OAuthHandler    *handler.OAuthHandler
-	OAuthService    *service.OAuthService
-	UnitHandler     *handler.UnitHandler
-	ProjectHandler  *handler.ProjectHandler
-	TodoHandler     *handler.TodoHandler
-	NoteHandler     *handler.NoteHandler
-	NotifHandler    *handler.NotificationHandler
-	ScheduleHandler *handler.ScheduleHandler
-	BudgetHandler   *handler.BudgetHandler
-	SecretHandler   *handler.SecretHandler
-	BackupHandler   *handler.BackupHandler
-	MCPHandler      *handler.MCPHandler
-	JWTManager      *auth.JWTManager
-	AuthService     *service.AuthService
-	Logger          *zap.Logger
-	CorsOrigins     []string
-	MCPPath         string
-	MCPSettings     *service.MCPSettingsService
+	AuthHandler        *handler.AuthHandler
+	OAuthHandler       *handler.OAuthHandler
+	OAuthService       *service.OAuthService
+	UnitHandler        *handler.UnitHandler
+	ProjectHandler     *handler.ProjectHandler
+	TodoHandler        *handler.TodoHandler
+	NoteHandler        *handler.NoteHandler
+	NotifHandler       *handler.NotificationHandler
+	ScheduleHandler    *handler.ScheduleHandler
+	BudgetHandler      *handler.BudgetHandler
+	SecretHandler      *handler.SecretHandler
+	CertificateHandler *handler.CertificateHandler
+	BackupHandler      *handler.BackupHandler
+	MCPHandler         *handler.MCPHandler
+	JWTManager         *auth.JWTManager
+	AuthService        *service.AuthService
+	Logger             *zap.Logger
+	CorsOrigins        []string
+	MCPPath            string
+	MCPSettings        *service.MCPSettingsService
 }
 
 func NewRouter(cfg *RouterConfig) *Router {
@@ -63,25 +65,26 @@ func NewRouter(cfg *RouterConfig) *Router {
 	}
 
 	return &Router{
-		authHandler:     cfg.AuthHandler,
-		oauthHandler:    cfg.OAuthHandler,
-		oauthService:    cfg.OAuthService,
-		unitHandler:     cfg.UnitHandler,
-		projectHandler:  cfg.ProjectHandler,
-		todoHandler:     cfg.TodoHandler,
-		noteHandler:     cfg.NoteHandler,
-		notifHandler:    cfg.NotifHandler,
-		scheduleHandler: cfg.ScheduleHandler,
-		budgetHandler:   cfg.BudgetHandler,
-		secretHandler:   cfg.SecretHandler,
-		backupHandler:   cfg.BackupHandler,
-		mcpHandler:      cfg.MCPHandler,
-		jwtManager:      cfg.JWTManager,
-		authService:     cfg.AuthService,
-		logger:          cfg.Logger,
-		corsOrigins:     cfg.CorsOrigins,
-		mcpPath:         mcpPath,
-		mcpSettings:     cfg.MCPSettings,
+		authHandler:        cfg.AuthHandler,
+		oauthHandler:       cfg.OAuthHandler,
+		oauthService:       cfg.OAuthService,
+		unitHandler:        cfg.UnitHandler,
+		projectHandler:     cfg.ProjectHandler,
+		todoHandler:        cfg.TodoHandler,
+		noteHandler:        cfg.NoteHandler,
+		notifHandler:       cfg.NotifHandler,
+		scheduleHandler:    cfg.ScheduleHandler,
+		budgetHandler:      cfg.BudgetHandler,
+		secretHandler:      cfg.SecretHandler,
+		certificateHandler: cfg.CertificateHandler,
+		backupHandler:      cfg.BackupHandler,
+		mcpHandler:         cfg.MCPHandler,
+		jwtManager:         cfg.JWTManager,
+		authService:        cfg.AuthService,
+		logger:             cfg.Logger,
+		corsOrigins:        cfg.CorsOrigins,
+		mcpPath:            mcpPath,
+		mcpSettings:        cfg.MCPSettings,
 	}
 }
 
@@ -271,6 +274,17 @@ func (r *Router) Setup() *gin.Engine {
 	protected.GET("/secrets/:id/value", r.secretHandler.GetValue)
 	protected.GET("/secrets/:id/audit-logs", r.secretHandler.AuditLogs)
 	protected.GET("/secret-audit-logs", r.secretHandler.AuditLogs)
+
+	// Public certificate files share the attachment API and authentication.
+	if r.certificateHandler != nil {
+		protected.GET("/attachments", r.certificateHandler.List)
+		protected.POST("/attachments", r.certificateHandler.Upload)
+		protected.GET("/attachments/:id/download", r.certificateHandler.Download)
+		protected.DELETE("/attachments/:id", r.certificateHandler.Delete)
+		protected.POST("/attachments/:id/links", r.certificateHandler.Link)
+		protected.DELETE("/attachments/:id/links", r.certificateHandler.Link)
+		protected.POST("/certificates/:id/countdown", r.certificateHandler.CreateCountdown)
+	}
 
 	// Backup
 	protected.GET("/backup/export", r.backupHandler.Export)

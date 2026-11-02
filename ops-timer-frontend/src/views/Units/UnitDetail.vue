@@ -85,6 +85,8 @@
           </v-card-text>
         </v-card>
 
+        <CertificatePanel :owner="{ owner_type: 'unit', owner_id: unit.id }" />
+
         <!-- Logs for count types -->
         <v-card v-if="isCountType" class="rounded-lg">
           <v-card-title>操作记录</v-card-title>
@@ -164,11 +166,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { MdPreview } from 'md-editor-v3'
 import 'md-editor-v3/lib/preview.css'
 import type { Unit, UnitLog } from '@/types'
+import CertificatePanel from '@/components/CertificatePanel.vue'
 import { unitApi } from '@/api/units'
 import {
   formatDuration, formatDateTime, getTimeColor, getStatusColor, getStatusLabel, parseAppTime,
@@ -243,6 +246,13 @@ async function handleStep(direction: 'up' | 'down') {
 async function updateStatus(status: string) {
   await unitApi.updateStatus(route.params.id as string, status)
 }
+
+// Vue reuses this view when a certificate opens another unit's countdown.
+watch(() => route.params.id, async () => {
+  logs.value = []
+  await fetchUnit()
+  fetchLogs()
+})
 
 onMounted(async () => {
   await fetchUnit()

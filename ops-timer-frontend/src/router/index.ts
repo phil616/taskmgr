@@ -70,6 +70,11 @@ const router = createRouter({
           component: () => import('@/views/Secrets/SecretList.vue'),
         },
         {
+          path: 'certificates',
+          name: 'certificates',
+          component: () => import('@/views/Certificates/CertificateList.vue'),
+        },
+        {
           path: 'notifications',
           name: 'notifications',
           component: () => import('@/views/Notifications.vue'),

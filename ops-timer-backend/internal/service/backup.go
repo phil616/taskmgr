@@ -9,6 +9,7 @@ import (
 
 	"ops-timer-backend/internal/dto"
 	"ops-timer-backend/internal/model"
+	"ops-timer-backend/internal/pkg/certparse"
 	"ops-timer-backend/internal/pkg/timeutil"
 
 	"gorm.io/gorm"
@@ -84,6 +85,16 @@ func (s *BackupService) Export() (*dto.BackupPackage, error) {
 		return nil, err
 	}
 
+	if err := s.db.Order("created_at ASC, id ASC").Find(&data.Attachments).Error; err != nil {
+		return nil, err
+	}
+	if err := s.db.Order("id ASC").Find(&data.Certificates).Error; err != nil {
+		return nil, err
+	}
+	if err := s.db.Order("created_at ASC, id ASC").Find(&data.AttachmentLinks).Error; err != nil {
+		return nil, err
+	}
+
 	return &dto.BackupPackage{
 		BackupMetadata: dto.BackupMetadata{
 			Format:        dto.BackupFormat,
@@ -109,6 +120,9 @@ func (s *BackupService) Import(strategy string, raw []byte) (*dto.BackupImportRe
 		return nil, err
 	}
 	normalizeBackupPackage(&payload)
+	if err := validateBackupCertificates(&payload.Data); err != nil {
+		return nil, err
+	}
 	if err := s.validatePackage(&payload); err != nil {
 		return nil, err
 	}
@@ -135,6 +149,9 @@ func (s *BackupService) Import(strategy string, raw []byte) (*dto.BackupImportRe
 	return &dto.BackupImportResult{
 		Strategy: strategy,
 		Stats: dto.BackupStats{
+			Attachments:       len(payload.Data.Attachments),
+			Certificates:      len(payload.Data.Certificates),
+			AttachmentLinks:   len(payload.Data.AttachmentLinks),
 			Projects:          len(payload.Data.Projects),
 			Units:             len(payload.Data.Units),
 			UnitLogs:          len(payload.Data.UnitLogs),
@@ -219,6 +236,9 @@ func utf16ToUTF8(raw []byte, order binary.ByteOrder) []byte {
 
 func clearBackupTables(tx *gorm.DB) error {
 	for _, target := range []any{
+		&model.AttachmentLink{},
+		&model.Certificate{},
+		&model.Attachment{},
 		&model.SecretAuditLog{},
 		&model.UnitLog{},
 		&model.Notification{},
@@ -255,6 +275,15 @@ func mergeBackup(tx *gorm.DB, data *dto.BackupData) error {
 }
 
 func createBackupData(tx *gorm.DB, data *dto.BackupData, upsert bool) error {
+	if err := createBatch(tx, data.Attachments, upsert); err != nil {
+		return err
+	}
+	if err := createBatch(tx, data.Certificates, upsert); err != nil {
+		return err
+	}
+	if err := createBatch(tx, data.AttachmentLinks, upsert); err != nil {
+		return err
+	}
 	if err := createBatch(tx, data.Projects, upsert); err != nil {
 		return err
 	}
@@ -366,4 +395,60 @@ func ReadAllBackup(r io.Reader) ([]byte, error) {
 		return nil, fmt.Errorf("备份文件为空")
 	}
 	return raw, nil
+}
+
+// Reparse original public files on import so backups cannot inject private keys or
+// substitute expiry metadata. Preserve stable IDs and countdown associations.
+func validateBackupCertificates(data *dto.BackupData) error {
+	byAttachment := make(map[string][]int)
+	for i, c := range data.Certificates {
+		byAttachment[c.AttachmentID] = append(byAttachment[c.AttachmentID], i)
+	}
+	seen := make(map[string]bool)
+	for i := range data.Attachments {
+		a := &data.Attachments[i]
+		if seen[a.ID] {
+			return fmt.Errorf("重复的附件 ID: %s", a.ID)
+		}
+		seen[a.ID] = true
+		parsed, err := certparse.Parse(a.Content)
+		if err != nil {
+			return fmt.Errorf("附件 %s 无效: %w", a.Filename, err)
+		}
+		indices := byAttachment[a.ID]
+		if len(indices) != len(parsed) {
+			return fmt.Errorf("附件 %s 的证书信息不完整", a.Filename)
+		}
+		used := make([]bool, len(parsed))
+		for _, index := range indices {
+			existing := data.Certificates[index]
+			matched := false
+			for j, c := range parsed {
+				if !used[j] && c.Fingerprint == existing.Fingerprint {
+					c.ID, c.AttachmentID, c.CountdownUnitID = existing.ID, a.ID, existing.CountdownUnitID
+					data.Certificates[index] = c
+					used[j] = true
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return fmt.Errorf("附件 %s 的证书指纹不匹配", a.Filename)
+			}
+		}
+		a.Size = int64(len(a.Content))
+		a.ContentType = "application/octet-stream"
+		a.Certificates = nil
+	}
+	for _, c := range data.Certificates {
+		if !seen[c.AttachmentID] {
+			return fmt.Errorf("证书缺少原始附件: %s", c.ID)
+		}
+	}
+	for _, link := range data.AttachmentLinks {
+		if !seen[link.AttachmentID] {
+			return fmt.Errorf("关联缺少原始附件: %s", link.ID)
+		}
+	}
+	return nil
 }
